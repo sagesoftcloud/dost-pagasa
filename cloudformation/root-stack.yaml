@@ -66,11 +66,6 @@ Parameters:
   NumCacheClusters:
     Type: Number
     Default: 2
-  # Monitoring
-  AlarmEmail:
-    Type: String
-    Default: "dev.pagasa@gmail.com"
-    Description: Email for alarm notifications (reserved for monitoring stack)
   # WAF
   RateLimitPerIp:
     Type: Number
