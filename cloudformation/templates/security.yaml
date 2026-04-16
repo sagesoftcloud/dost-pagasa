@@ -208,28 +208,6 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # ---------------------------------------------------------------------------
-  # GuardDuty - Threat Detection
-  # ---------------------------------------------------------------------------
-  # ⚠️ SECURITY: GuardDuty is essential for government compliance.
-  #   It monitors for malicious activity and unauthorized behavior.
-  # ⚠️ NOTE: GuardDuty can only be enabled once per account per region.
-  #   If already enabled, remove this resource or use a condition.
-
-  GuardDutyDetector:
-    Type: AWS::GuardDuty::Detector
-    Properties:
-      Enable: true
-      FindingPublishingFrequency: FIFTEEN_MINUTES
-      DataSources:
-        S3Logs:
-          Enable: true
-      Tags:
-        - Key: Project
-          Value: DOST-PAGASA
-        - Key: Environment
-          Value: !Ref Environment
-
 Outputs:
   AlbSecurityGroupId:
     Description: ALB Security Group ID
@@ -251,8 +229,3 @@ Outputs:
     Value: !GetAtt WafWebAcl.Arn
     Export:
       Name: !Sub "dost-pagasa-${Environment}-waf-acl-arn"
-  GuardDutyDetectorId:
-    Description: GuardDuty Detector ID
-    Value: !Ref GuardDutyDetector
-    Export:
-      Name: !Sub "dost-pagasa-${Environment}-guardduty-id"
