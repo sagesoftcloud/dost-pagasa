@@ -4,5 +4,5 @@
   { "ParameterKey": "MinCapacity",       "ParameterValue": "1" },
   { "ParameterKey": "MaxCapacity",       "ParameterValue": "2" },
   { "ParameterKey": "DesiredCapacity",   "ParameterValue": "1" },
-  { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-bastion-key" }
+  { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-dev-key" }
 ]
