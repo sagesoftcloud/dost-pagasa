@@ -1,0 +1,265 @@
+# =============================================================================
+# DOST PAGASA — Security Stack
+# Creates: WAF WebACL, GuardDuty Detector, Security Groups
+# =============================================================================
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  DOST PAGASA Security Infrastructure — WAF WebACL for ALB/CloudFront,
+  GuardDuty threat detection, and Security Groups for all tiers.
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  VpcId:
+    Type: String
+    Description: VPC ID from network stack
+  VpcCidr:
+    Type: String
+    Description: VPC CIDR for internal traffic rules
+  OnPremisesCidr:
+    Type: String
+    Default: "10.100.100.0/24"
+    Description: On-premises CIDR for VPN traffic rules
+  BastionSecurityGroupId:
+    Type: String
+    Description: Bastion host security group ID from network stack
+  RateLimitPerIp:
+    Type: Number
+    Default: 2000
+    Description: WAF rate limit — requests per 5-minute window per IP
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Security Groups
+  # ---------------------------------------------------------------------------
+
+  # ALB Security Group — allows inbound HTTP/HTTPS from the internet
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DOST PAGASA ALB — allows HTTP/HTTPS from internet
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+          Description: HTTP from internet
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: "0.0.0.0/0"
+          Description: HTTPS from internet
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: "0.0.0.0/0"
+          Description: Allow all outbound
+      Tags:
+        - Key: Name
+          Value: !Sub "dost-pagasa-${Environment}-alb-sg"
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EC2 Security Group — allows traffic only from ALB and on-premises via VPN
+  Ec2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DOST PAGASA EC2 instances — ALB and VPN traffic only
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+          Description: HTTP from ALB
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+          Description: HTTPS from ALB
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSecurityGroupId
+          Description: SSH from bastion host only
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: "0.0.0.0/0"
+          Description: Allow all outbound
+      Tags:
+        - Key: Name
+          Value: !Sub "dost-pagasa-${Environment}-ec2-sg"
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ElastiCache Security Group — allows traffic only from EC2 instances
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DOST PAGASA ElastiCache — EC2 instances only
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref Ec2SecurityGroup
+          Description: Valkey/Redis from EC2 instances
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: "0.0.0.0/0"
+          Description: Allow all outbound
+      Tags:
+        - Key: Name
+          Value: !Sub "dost-pagasa-${Environment}-cache-sg"
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ---------------------------------------------------------------------------
+  # WAF WebACL — Protects ALB and CloudFront
+  # ---------------------------------------------------------------------------
+  # ⚠️ SECURITY: WAF is critical for government web applications.
+  #   This WebACL includes AWS Managed Rules for common threats.
+
+  WafWebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub "dost-pagasa-${Environment}-waf"
+      Scope: REGIONAL  # Use CLOUDFRONT scope for CloudFront (must be in us-east-1)
+      DefaultAction:
+        Allow: {}
+      Description: !Sub "DOST PAGASA ${Environment} WAF — protects ALB"
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub "dost-pagasa-${Environment}-waf"
+      Rules:
+        # AWS Managed Rule — Common Rule Set (OWASP Top 10)
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: CommonRuleSet
+
+        # AWS Managed Rule — Known Bad Inputs
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: KnownBadInputs
+
+        # AWS Managed Rule — SQL Injection Protection
+        - Name: AWSManagedRulesSQLiRuleSet
+          Priority: 3
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: SQLiRuleSet
+
+        # AWS Managed Rule — IP Reputation
+        - Name: AWSManagedRulesAmazonIpReputationList
+          Priority: 4
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesAmazonIpReputationList
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: IpReputation
+
+        # Rate Limiting — prevent DDoS / brute force
+        - Name: RateLimitRule
+          Priority: 5
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: !Ref RateLimitPerIp
+              AggregateKeyType: IP
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimit
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ---------------------------------------------------------------------------
+  # GuardDuty — Threat Detection
+  # ---------------------------------------------------------------------------
+  # ⚠️ SECURITY: GuardDuty is essential for government compliance.
+  #   It monitors for malicious activity and unauthorized behavior.
+  # ⚠️ NOTE: GuardDuty can only be enabled once per account per region.
+  #   If already enabled, remove this resource or use a condition.
+
+  GuardDutyDetector:
+    Type: AWS::GuardDuty::Detector
+    Properties:
+      Enable: true
+      FindingPublishingFrequency: FIFTEEN_MINUTES
+      DataSources:
+        S3Logs:
+          Enable: true
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  AlbSecurityGroupId:
+    Description: ALB Security Group ID
+    Value: !Ref AlbSecurityGroup
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-alb-sg-id"
+  Ec2SecurityGroupId:
+    Description: EC2 Security Group ID
+    Value: !Ref Ec2SecurityGroup
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-ec2-sg-id"
+  CacheSecurityGroupId:
+    Description: ElastiCache Security Group ID
+    Value: !Ref CacheSecurityGroup
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-cache-sg-id"
+  WafWebAclArn:
+    Description: WAF WebACL ARN
+    Value: !GetAtt WafWebAcl.Arn
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-waf-acl-arn"
+  GuardDutyDetectorId:
+    Description: GuardDuty Detector ID
+    Value: !Ref GuardDutyDetector
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-guardduty-id"

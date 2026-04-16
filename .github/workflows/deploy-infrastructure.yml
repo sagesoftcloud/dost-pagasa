@@ -1,0 +1,341 @@
+# =============================================================================
+# DOST PAGASA — Infrastructure Deployment Pipeline
+# Triggers: push to develop (→ dev), push to main (→ prod)
+# Manual: workflow_dispatch for any environment (staging)
+# =============================================================================
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      # Only trigger when CloudFormation files change
+      - "cloudformation/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+# ⚠️ SECURITY: Restrict permissions to minimum needed
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read     # Required to checkout code
+
+# Prevent concurrent deployments to the same environment
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel in-progress deployments
+
+env:
+  AWS_REGION: ap-southeast-1
+  TEMPLATES_BUCKET: dost-pagasa-cfn-templates-305366321337
+  STACK_NAME_PREFIX: dost-pagasa
+
+jobs:
+  # ===========================================================================
+  # Job 1: Determine Environment
+  # ===========================================================================
+  setup:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+    steps:
+      - name: Set environment from branch or input
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Print target environment
+        run: echo "🎯 Deploying to ${{ steps.set-env.outputs.environment }}"
+
+  # ===========================================================================
+  # Job 2: Validate Templates
+  # ===========================================================================
+  validate:
+    name: Validate Templates
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python (for cfn-lint)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cfn-lint
+        run: pip install cfn-lint
+
+      - name: Run cfn-lint on all templates
+        run: |
+          echo "🔍 Running cfn-lint..."
+          cfn-lint cloudformation/templates/*.yaml
+          cfn-lint cloudformation/root-stack.yaml
+          echo "✅ cfn-lint passed"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate templates with AWS CloudFormation API
+        run: |
+          echo "🔍 Validating with AWS CloudFormation API..."
+          for template in cloudformation/templates/*.yaml; do
+            echo "  Validating $(basename $template)..."
+            aws cloudformation validate-template \
+              --template-body "file://$template" \
+              --region ${{ env.AWS_REGION }}
+          done
+          echo "  Validating root-stack.yaml..."
+          aws cloudformation validate-template \
+            --template-body "file://cloudformation/root-stack.yaml" \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ All templates valid"
+
+  # ===========================================================================
+  # Job 3: Deploy to Dev/Staging (automatic for dev, manual trigger for staging)
+  # ===========================================================================
+  deploy-non-prod:
+    name: Deploy to ${{ needs.setup.outputs.environment }}
+    runs-on: ubuntu-latest
+    needs: [setup, validate]
+    if: needs.setup.outputs.environment != 'prod'
+    environment: ${{ needs.setup.outputs.environment }}
+    env:
+      ENVIRONMENT: ${{ needs.setup.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload nested templates to S3
+        run: |
+          echo "📦 Uploading nested templates to S3..."
+          aws s3 sync cloudformation/templates/ \
+            "s3://${{ env.TEMPLATES_BUCKET }}/templates/" \
+            --delete \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ Templates uploaded"
+
+      - name: Deploy CloudFormation stack
+        run: |
+          STACK_NAME="${{ env.STACK_NAME_PREFIX }}-${{ env.ENVIRONMENT }}"
+          PARAMS_FILE="cloudformation/parameters/${{ env.ENVIRONMENT }}.json"
+
+          echo "🚀 Deploying stack: ${STACK_NAME}"
+
+          # Check if stack exists
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          echo "  Current stack status: ${STACK_STATUS}"
+
+          if [ "${STACK_STATUS}" = "DOES_NOT_EXIST" ]; then
+            echo "  Creating new stack..."
+            aws cloudformation create-stack \
+              --stack-name "${STACK_NAME}" \
+              --template-body file://cloudformation/root-stack.yaml \
+              --parameters "file://${PARAMS_FILE}" \
+              --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+              --tags Key=Project,Value=DOST-PAGASA Key=Environment,Value=${{ env.ENVIRONMENT }} \
+              --region ${{ env.AWS_REGION }}
+
+            echo "  ⏳ Waiting for stack creation..."
+            aws cloudformation wait stack-create-complete \
+              --stack-name "${STACK_NAME}" \
+              --region ${{ env.AWS_REGION }}
+          else
+            echo "  Updating existing stack..."
+            # Use deploy which handles no-change scenarios gracefully
+            aws cloudformation deploy \
+              --stack-name "${STACK_NAME}" \
+              --template-file cloudformation/root-stack.yaml \
+              --parameter-overrides $(cat "${PARAMS_FILE}" | python3 -c "
+          import json, sys
+          params = json.load(sys.stdin)
+          print(' '.join([f'{p[\"ParameterKey\"]}={p[\"ParameterValue\"]}' for p in params]))
+          ") \
+              --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+              --tags Project=DOST-PAGASA Environment=${{ env.ENVIRONMENT }} \
+              --region ${{ env.AWS_REGION }} \
+              --no-fail-on-empty-changeset
+          fi
+
+          echo "✅ Deployment complete"
+
+      - name: Print stack outputs
+        if: success()
+        run: |
+          STACK_NAME="${{ env.STACK_NAME_PREFIX }}-${{ env.ENVIRONMENT }}"
+          echo "📋 Stack Outputs:"
+          aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query "Stacks[0].Outputs" \
+            --output table
+
+  # ===========================================================================
+  # Job 4: Deploy to Production (requires manual approval)
+  # ===========================================================================
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [setup, validate]
+    if: needs.setup.outputs.environment == 'prod'
+    # ⚠️ SECURITY: The 'production' environment MUST have required reviewers
+    #   configured in GitHub Settings → Environments. This creates a manual
+    #   approval gate before any production deployment.
+    environment: production
+    env:
+      ENVIRONMENT: prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload nested templates to S3
+        run: |
+          echo "📦 Uploading nested templates to S3..."
+          aws s3 sync cloudformation/templates/ \
+            "s3://${{ env.TEMPLATES_BUCKET }}/templates/" \
+            --delete \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ Templates uploaded"
+
+      - name: Create Change Set (preview changes before applying)
+        id: changeset
+        run: |
+          STACK_NAME="${{ env.STACK_NAME_PREFIX }}-prod"
+          CHANGESET_NAME="deploy-$(date +%Y%m%d-%H%M%S)"
+          PARAMS_FILE="cloudformation/parameters/prod.json"
+
+          echo "🔍 Creating change set: ${CHANGESET_NAME}"
+
+          # Check if stack exists
+          STACK_EXISTS=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} 2>/dev/null && echo "true" || echo "false")
+
+          if [ "${STACK_EXISTS}" = "false" ]; then
+            CHANGE_SET_TYPE="CREATE"
+          else
+            CHANGE_SET_TYPE="UPDATE"
+          fi
+
+          aws cloudformation create-change-set \
+            --stack-name "${STACK_NAME}" \
+            --change-set-name "${CHANGESET_NAME}" \
+            --change-set-type "${CHANGE_SET_TYPE}" \
+            --template-body file://cloudformation/root-stack.yaml \
+            --parameters "file://${PARAMS_FILE}" \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --tags Key=Project,Value=DOST-PAGASA Key=Environment,Value=prod \
+            --region ${{ env.AWS_REGION }}
+
+          echo "  ⏳ Waiting for change set creation..."
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "${STACK_NAME}" \
+            --change-set-name "${CHANGESET_NAME}" \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || true
+
+          # Check change set status
+          STATUS=$(aws cloudformation describe-change-set \
+            --stack-name "${STACK_NAME}" \
+            --change-set-name "${CHANGESET_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query "Status" --output text)
+
+          if [ "${STATUS}" = "FAILED" ]; then
+            REASON=$(aws cloudformation describe-change-set \
+              --stack-name "${STACK_NAME}" \
+              --change-set-name "${CHANGESET_NAME}" \
+              --region ${{ env.AWS_REGION }} \
+              --query "StatusReason" --output text)
+            
+            if echo "${REASON}" | grep -q "didn't contain changes"; then
+              echo "ℹ️  No changes detected. Stack is up to date."
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+              # Clean up empty change set
+              aws cloudformation delete-change-set \
+                --stack-name "${STACK_NAME}" \
+                --change-set-name "${CHANGESET_NAME}" \
+                --region ${{ env.AWS_REGION }}
+              exit 0
+            else
+              echo "❌ Change set failed: ${REASON}"
+              exit 1
+            fi
+          fi
+
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          echo "changeset_name=${CHANGESET_NAME}" >> "$GITHUB_OUTPUT"
+
+          # Print the changes
+          echo "📋 Changes to be applied:"
+          aws cloudformation describe-change-set \
+            --stack-name "${STACK_NAME}" \
+            --change-set-name "${CHANGESET_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query "Changes[].ResourceChange.{Action:Action,Resource:ResourceType,LogicalId:LogicalResourceId,Replacement:Replacement}" \
+            --output table
+
+      - name: Execute Change Set
+        if: steps.changeset.outputs.has_changes == 'true'
+        run: |
+          STACK_NAME="${{ env.STACK_NAME_PREFIX }}-prod"
+          CHANGESET_NAME="${{ steps.changeset.outputs.changeset_name }}"
+
+          echo "🚀 Executing change set: ${CHANGESET_NAME}"
+          aws cloudformation execute-change-set \
+            --stack-name "${STACK_NAME}" \
+            --change-set-name "${CHANGESET_NAME}" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "  ⏳ Waiting for stack update..."
+          aws cloudformation wait stack-update-complete \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "✅ Production deployment complete"
+
+      - name: Print stack outputs
+        if: success()
+        run: |
+          STACK_NAME="${{ env.STACK_NAME_PREFIX }}-prod"
+          echo "📋 Production Stack Outputs:"
+          aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query "Stacks[0].Outputs" \
+            --output table

@@ -1,0 +1,54 @@
+# =============================================================================
+# DOST PAGASA — Certificates Stack
+# Creates: ACM Certificate with DNS validation
+# =============================================================================
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  DOST PAGASA ACM Certificate — SSL/TLS certificate for the application
+  domain with DNS validation.
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  DomainName:
+    Type: String
+    Description: Primary domain (e.g., pagasa.dost.gov.ph)
+  SubjectAlternativeNames:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: Additional domain names (e.g., www.pagasa.dost.gov.ph)
+
+Conditions:
+  HasSANs: !Not [!Equals [!Select [0, !Ref SubjectAlternativeNames], ""]]
+
+Resources:
+  # ⚠️ MANUAL ACTION REQUIRED:
+  #   After stack creation, the certificate will be in "Pending validation" state.
+  #   You MUST add the CNAME records shown in the stack outputs (or ACM console)
+  #   to your DNS provider to complete validation.
+  #
+  #   For DOST PAGASA (.gov.ph domain), coordinate with the agency's DNS
+  #   administrator to add the validation CNAME records.
+
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames: !If
+        - HasSANs
+        - !Ref SubjectAlternativeNames
+        - !Ref "AWS::NoValue"
+      ValidationMethod: DNS
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  CertificateArn:
+    Description: ACM Certificate ARN
+    Value: !Ref Certificate
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-certificate-arn"

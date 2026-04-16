@@ -1,0 +1,8 @@
+[
+  { "ParameterKey": "Environment",       "ParameterValue": "prod" },
+  { "ParameterKey": "InstanceType",      "ParameterValue": "t3.large" },
+  { "ParameterKey": "MinCapacity",       "ParameterValue": "2" },
+  { "ParameterKey": "MaxCapacity",       "ParameterValue": "10" },
+  { "ParameterKey": "DesiredCapacity",   "ParameterValue": "3" },
+  { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-bastion-key" }
+]

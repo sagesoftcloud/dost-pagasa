@@ -1,0 +1,563 @@
+# =============================================================================
+# DOST PAGASA — Network Stack
+# Creates: VPC, Public/Private Subnets (shared + per-env), NAT, IGW, VPN, Bastion
+# =============================================================================
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  DOST PAGASA Network Infrastructure — Single VPC with shared public subnets,
+  per-environment private subnets, NAT Gateway, Site-to-Site VPN, and Bastion Host.
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: "10.2.0.0/16"
+  PublicSubnet1Cidr:
+    Type: String
+    Default: "10.2.1.0/24"
+  PublicSubnet2Cidr:
+    Type: String
+    Default: "10.2.2.0/24"
+  PrivateSubnetDev1Cidr:
+    Type: String
+    Default: "10.2.10.0/24"
+  PrivateSubnetDev2Cidr:
+    Type: String
+    Default: "10.2.11.0/24"
+  PrivateSubnetStaging1Cidr:
+    Type: String
+    Default: "10.2.20.0/24"
+  PrivateSubnetStaging2Cidr:
+    Type: String
+    Default: "10.2.21.0/24"
+  PrivateSubnetProd1Cidr:
+    Type: String
+    Default: "10.2.30.0/24"
+  PrivateSubnetProd2Cidr:
+    Type: String
+    Default: "10.2.31.0/24"
+  OnPremisesPublicIp:
+    Type: String
+    Default: "122.55.201.79"
+  OnPremisesCidr:
+    Type: String
+    Default: "10.100.100.0/24"
+  VpnTunnelInsideCidr1:
+    Type: String
+    Default: "169.254.10.0/30"
+  VpnTunnelInsideCidr2:
+    Type: String
+    Default: "169.254.10.4/30"
+  BastionKeyPairName:
+    Type: String
+    Description: EC2 Key Pair for bastion host SSH access
+  BastionInstanceType:
+    Type: String
+    Default: t3.micro
+  BastionAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # VPC
+  # ---------------------------------------------------------------------------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-vpc
+        - Key: Project
+          Value: DOST-PAGASA
+
+  # ---------------------------------------------------------------------------
+  # Internet Gateway
+  # ---------------------------------------------------------------------------
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-igw
+        - Key: Project
+          Value: DOST-PAGASA
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  # ---------------------------------------------------------------------------
+  # Public Subnets (shared — ALB, Bastion)
+  # ---------------------------------------------------------------------------
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicSubnet1Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-public-1a
+        - Key: Project
+          Value: DOST-PAGASA
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicSubnet2Cidr
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-public-1b
+        - Key: Project
+          Value: DOST-PAGASA
+
+  # ---------------------------------------------------------------------------
+  # Private Subnets — Dev
+  # ---------------------------------------------------------------------------
+  PrivateSubnetDev1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetDev1Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-private-dev-1a
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: dev
+
+  PrivateSubnetDev2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetDev2Cidr
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-private-dev-1b
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: dev
+
+  # ---------------------------------------------------------------------------
+  # Private Subnets — Staging
+  # ---------------------------------------------------------------------------
+  PrivateSubnetStaging1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetStaging1Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-private-staging-1a
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: staging
+
+  PrivateSubnetStaging2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetStaging2Cidr
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-private-staging-1b
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: staging
+
+  # ---------------------------------------------------------------------------
+  # Private Subnets — Prod
+  # ---------------------------------------------------------------------------
+  PrivateSubnetProd1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetProd1Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-private-prod-1a
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: prod
+
+  PrivateSubnetProd2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetProd2Cidr
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-private-prod-1b
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: prod
+
+  # ---------------------------------------------------------------------------
+  # NAT Gateway (single, shared)
+  # ---------------------------------------------------------------------------
+  NatEip:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-nat-eip
+        - Key: Project
+          Value: DOST-PAGASA
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-nat
+        - Key: Project
+          Value: DOST-PAGASA
+
+  # ---------------------------------------------------------------------------
+  # Route Tables — Public
+  # ---------------------------------------------------------------------------
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-public-rt
+        - Key: Project
+          Value: DOST-PAGASA
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # ---------------------------------------------------------------------------
+  # Route Tables — Private (shared by all environments)
+  # ---------------------------------------------------------------------------
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-private-rt
+        - Key: Project
+          Value: DOST-PAGASA
+
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetDev1RtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetDev1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetDev2RtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetDev2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetStaging1RtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetStaging1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetStaging2RtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetStaging2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetProd1RtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetProd1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetProd2RtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetProd2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # ---------------------------------------------------------------------------
+  # VPC Flow Logs
+  # ---------------------------------------------------------------------------
+  VpcFlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /dost-pagasa/vpc-flow-logs
+      RetentionInDays: 365
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+
+  VpcFlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: dost-pagasa-vpc-flow-log-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FlowLogPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource: "*"
+
+  VpcFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceId: !Ref Vpc
+      ResourceType: VPC
+      TrafficType: ALL
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref VpcFlowLogGroup
+      DeliverLogsPermissionArn: !GetAtt VpcFlowLogRole.Arn
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-vpc-flow-log
+        - Key: Project
+          Value: DOST-PAGASA
+
+  # ---------------------------------------------------------------------------
+  # Site-to-Site VPN
+  # ---------------------------------------------------------------------------
+  CustomerGateway:
+    Type: AWS::EC2::CustomerGateway
+    Properties:
+      Type: ipsec.1
+      BgpAsn: 65000
+      IpAddress: !Ref OnPremisesPublicIp
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-cgw
+        - Key: Project
+          Value: DOST-PAGASA
+
+  VpnGateway:
+    Type: AWS::EC2::VPNGateway
+    Properties:
+      Type: ipsec.1
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-vgw
+        - Key: Project
+          Value: DOST-PAGASA
+
+  VpnGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      VpnGatewayId: !Ref VpnGateway
+
+  VpnConnection:
+    Type: AWS::EC2::VPNConnection
+    Properties:
+      Type: ipsec.1
+      CustomerGatewayId: !Ref CustomerGateway
+      VpnGatewayId: !Ref VpnGateway
+      StaticRoutesOnly: true
+      VpnTunnelOptionsSpecifications:
+        - TunnelInsideCidr: !Ref VpnTunnelInsideCidr1
+        - TunnelInsideCidr: !Ref VpnTunnelInsideCidr2
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-vpn
+        - Key: Project
+          Value: DOST-PAGASA
+
+  VpnConnectionRoute:
+    Type: AWS::EC2::VPNConnectionRoute
+    Properties:
+      VpnConnectionId: !Ref VpnConnection
+      DestinationCidrBlock: !Ref OnPremisesCidr
+
+  PrivateToOnPremRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpnGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: !Ref OnPremisesCidr
+      GatewayId: !Ref VpnGateway
+
+  VpnRoutePropagation:
+    Type: AWS::EC2::VPNGatewayRoutePropagation
+    DependsOn: VpnGatewayAttachment
+    Properties:
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+      VpnGatewayId: !Ref VpnGateway
+
+  # ---------------------------------------------------------------------------
+  # Bastion Host
+  # ---------------------------------------------------------------------------
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DOST PAGASA Bastion — SSH from on-premises only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Sub "${OnPremisesPublicIp}/32"
+          Description: SSH from on-premises public IP
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref OnPremisesCidr
+          Description: SSH from on-premises via VPN
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: "0.0.0.0/0"
+          Description: Allow all outbound
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-bastion-sg
+        - Key: Project
+          Value: DOST-PAGASA
+
+  BastionInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref BastionInstanceType
+      ImageId: !Ref BastionAmiId
+      KeyName: !Ref BastionKeyPairName
+      SubnetId: !Ref PublicSubnet1
+      SecurityGroupIds:
+        - !Ref BastionSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-bastion
+        - Key: Project
+          Value: DOST-PAGASA
+
+  BastionEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref BastionInstance
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: dost-pagasa-bastion-eip
+        - Key: Project
+          Value: DOST-PAGASA
+
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+    Export:
+      Name: dost-pagasa-vpc-id
+  PublicSubnet1Id:
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: dost-pagasa-public-subnet-1
+  PublicSubnet2Id:
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: dost-pagasa-public-subnet-2
+  PrivateSubnetDev1Id:
+    Value: !Ref PrivateSubnetDev1
+    Export:
+      Name: dost-pagasa-private-subnet-dev-1
+  PrivateSubnetDev2Id:
+    Value: !Ref PrivateSubnetDev2
+    Export:
+      Name: dost-pagasa-private-subnet-dev-2
+  PrivateSubnetStaging1Id:
+    Value: !Ref PrivateSubnetStaging1
+    Export:
+      Name: dost-pagasa-private-subnet-staging-1
+  PrivateSubnetStaging2Id:
+    Value: !Ref PrivateSubnetStaging2
+    Export:
+      Name: dost-pagasa-private-subnet-staging-2
+  PrivateSubnetProd1Id:
+    Value: !Ref PrivateSubnetProd1
+    Export:
+      Name: dost-pagasa-private-subnet-prod-1
+  PrivateSubnetProd2Id:
+    Value: !Ref PrivateSubnetProd2
+    Export:
+      Name: dost-pagasa-private-subnet-prod-2
+  BastionPublicIp:
+    Value: !Ref BastionEip
+    Export:
+      Name: dost-pagasa-bastion-ip
+  BastionSecurityGroupId:
+    Value: !Ref BastionSecurityGroup
+    Export:
+      Name: dost-pagasa-bastion-sg-id
+  VpnConnectionId:
+    Value: !Ref VpnConnection
+    Export:
+      Name: dost-pagasa-vpn-connection-id

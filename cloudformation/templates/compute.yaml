@@ -1,0 +1,267 @@
+# =============================================================================
+# DOST PAGASA — Compute Stack (deployed per environment)
+# Creates: ALB, EC2 Auto Scaling Group, Launch Template
+# =============================================================================
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  DOST PAGASA Compute — ALB with HTTPS, EC2 ASG in environment-specific
+  private subnets. Deployed once per environment (dev/staging/prod).
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  VpcId:
+    Type: String
+  PublicSubnet1Id:
+    Type: String
+  PublicSubnet2Id:
+    Type: String
+  PrivateSubnet1Id:
+    Type: String
+    Description: Environment-specific private subnet AZ-a
+  PrivateSubnet2Id:
+    Type: String
+    Description: Environment-specific private subnet AZ-b
+  AlbSecurityGroupId:
+    Type: String
+  Ec2SecurityGroupId:
+    Type: String
+  WafWebAclArn:
+    Type: String
+  AcmCertificateArn:
+    Type: String
+  InstanceType:
+    Type: String
+    Default: t3.medium
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  MinCapacity:
+    Type: Number
+    Default: 2
+  MaxCapacity:
+    Type: Number
+    Default: 6
+  DesiredCapacity:
+    Type: Number
+    Default: 2
+  KeyPairName:
+    Type: String
+    Description: EC2 Key Pair for SSH access via bastion
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # EC2 Instance Role — CloudWatch agent only (no SSM)
+  # ---------------------------------------------------------------------------
+  Ec2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "dost-pagasa-${Environment}-ec2-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+  Ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref Ec2InstanceRole
+
+  # ---------------------------------------------------------------------------
+  # Application Load Balancer (shared public subnets)
+  # ---------------------------------------------------------------------------
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "dost-pagasa-${Environment}-alb"
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1Id
+        - !Ref PublicSubnet2Id
+      SecurityGroups:
+        - !Ref AlbSecurityGroupId
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: "60"
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: "true"
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+  WafAlbAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref ApplicationLoadBalancer
+      WebACLArn: !Ref WafWebAclArn
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates:
+        - CertificateArn: !Ref AcmCertificateArn
+      DefaultAction:
+        Type: forward
+        TargetGroupArn: !Ref TargetGroup
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: redirect
+        RedirectConfig:
+          Protocol: HTTPS
+          Port: "443"
+          StatusCode: HTTP_301
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "dost-pagasa-${Environment}-tg"
+      VpcId: !Ref VpcId
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200"
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ---------------------------------------------------------------------------
+  # Launch Template
+  # ---------------------------------------------------------------------------
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "dost-pagasa-${Environment}-lt"
+      LaunchTemplateData:
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        IamInstanceProfile:
+          Arn: !GetAtt Ec2InstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref Ec2SecurityGroupId
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 30
+              VolumeType: gp3
+              Encrypted: true
+              DeleteOnTermination: true
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+          HttpEndpoint: enabled
+        Monitoring:
+          Enabled: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub "dost-pagasa-${Environment}-app"
+              - Key: Project
+                Value: DOST-PAGASA
+              - Key: Environment
+                Value: !Ref Environment
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -euxo pipefail
+            dnf update -y
+            dnf install -y amazon-cloudwatch-agent
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+              -a fetch-config -m ec2 -s
+            echo "DOST PAGASA ${Environment} instance initialized" > /var/log/init.log
+
+  # ---------------------------------------------------------------------------
+  # Auto Scaling Group (environment-specific private subnets)
+  # ---------------------------------------------------------------------------
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub "dost-pagasa-${Environment}-asg"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: !Ref MinCapacity
+      MaxSize: !Ref MaxCapacity
+      DesiredCapacity: !Ref DesiredCapacity
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1Id
+        - !Ref PrivateSubnet2Id
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub "dost-pagasa-${Environment}-asg"
+          PropagateAtLaunch: false
+        - Key: Project
+          Value: DOST-PAGASA
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT5M
+        WaitOnResourceSignals: false
+
+  ScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 60.0
+
+Outputs:
+  AlbDnsName:
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-alb-dns"
+  AlbArn:
+    Value: !Ref ApplicationLoadBalancer
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-alb-arn"
+  AutoScalingGroupName:
+    Value: !Ref AutoScalingGroup
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-asg-name"

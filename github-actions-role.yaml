@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: IAM Role for GitHub Actions OIDC — DOST PAGASA deployments
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: sagesoftcloud
+  GitHubRepo:
+    Type: String
+    Default: dost-pagasa
+
+Resources:
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: dost-pagasa-github-actions-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+      Policies:
+        - PolicyName: CloudFormationDeployPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # CloudFormation full access for stack management
+              - Effect: Allow
+                Action:
+                  - cloudformation:*
+                Resource:
+                  - !Sub "arn:aws:cloudformation:ap-southeast-1:${AWS::AccountId}:stack/dost-pagasa-*/*"
+                  - !Sub "arn:aws:cloudformation:ap-southeast-1:${AWS::AccountId}:stackset/dost-pagasa-*:*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:GetTemplateSummary
+                Resource: "*"
+              # S3 — upload nested templates
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - "arn:aws:s3:::dost-pagasa-cfn-templates-305366321337"
+                  - "arn:aws:s3:::dost-pagasa-cfn-templates-305366321337/*"
+              # EC2, VPC, ELB, AutoScaling — for network/compute stacks
+              - Effect: Allow
+                Action:
+                  - ec2:*
+                  - elasticloadbalancing:*
+                  - autoscaling:*
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: ap-southeast-1
+              # ElastiCache — for cache stack
+              - Effect: Allow
+                Action:
+                  - elasticache:*
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: ap-southeast-1
+              # S3 — for storage stack (create/manage buckets)
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketEncryption
+                  - s3:PutBucketVersioning
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:PutLifecycleConfiguration
+                  - s3:PutBucketLogging
+                  - s3:PutBucketOwnershipControls
+                  - s3:GetBucket*
+                  - s3:ListBucket
+                Resource:
+                  - "arn:aws:s3:::dost-pagasa-*"
+              # CloudFront
+              - Effect: Allow
+                Action:
+                  - cloudfront:*
+                Resource: "*"
+              # WAF
+              - Effect: Allow
+                Action:
+                  - wafv2:*
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: ap-southeast-1
+              # GuardDuty
+              - Effect: Allow
+                Action:
+                  - guardduty:CreateDetector
+                  - guardduty:DeleteDetector
+                  - guardduty:GetDetector
+                  - guardduty:ListDetectors
+                  - guardduty:UpdateDetector
+                  - guardduty:TagResource
+                  - guardduty:UntagResource
+                Resource: "*"
+              # ACM
+              - Effect: Allow
+                Action:
+                  - acm:RequestCertificate
+                  - acm:DeleteCertificate
+                  - acm:DescribeCertificate
+                  - acm:ListCertificates
+                  - acm:AddTagsToCertificate
+                Resource: "*"
+              # CloudWatch, Logs, SNS — for monitoring stack
+              - Effect: Allow
+                Action:
+                  - cloudwatch:*
+                  - logs:*
+                  - sns:*
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: ap-southeast-1
+              # IAM — for creating service roles (EC2 instance role, flow log role)
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:PassRole
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:CreateInstanceProfile
+                  - iam:DeleteInstanceProfile
+                  - iam:AddRoleToInstanceProfile
+                  - iam:RemoveRoleFromInstanceProfile
+                  - iam:GetInstanceProfile
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/dost-pagasa-*"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:instance-profile/dost-pagasa-*"
+              # SSM — for AMI parameter lookup
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: "arn:aws:ssm:ap-southeast-1::parameter/aws/service/ami-amazon-linux-latest/*"
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+
+Outputs:
+  RoleArn:
+    Description: GitHub Actions IAM Role ARN
+    Value: !GetAtt GitHubActionsRole.Arn

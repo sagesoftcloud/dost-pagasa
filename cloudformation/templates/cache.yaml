@@ -1,0 +1,79 @@
+# =============================================================================
+# DOST PAGASA — Cache Stack
+# Creates: ElastiCache Valkey (Redis-compatible) Replication Group
+# =============================================================================
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  DOST PAGASA ElastiCache Valkey cluster with encryption at rest
+  and in transit, deployed in private subnets.
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+  PrivateSubnet1Id:
+    Type: String
+  PrivateSubnet2Id:
+    Type: String
+  CacheSecurityGroupId:
+    Type: String
+  NodeType:
+    Type: String
+    Default: cache.t3.medium
+    Description: ElastiCache node type
+  NumCacheClusters:
+    Type: Number
+    Default: 2
+    Description: Number of cache nodes (2 = primary + 1 replica)
+  EngineVersion:
+    Type: String
+    Default: "7.2"
+    Description: Valkey engine version
+
+Resources:
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub "dost-pagasa-${Environment}-cache-subnet"
+      Description: !Sub "DOST PAGASA ${Environment} ElastiCache subnet group"
+      SubnetIds:
+        - !Ref PrivateSubnet1Id
+        - !Ref PrivateSubnet2Id
+
+  ValkeyReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupDescription: !Sub "DOST PAGASA ${Environment} Valkey cluster"
+      ReplicationGroupId: !Sub "dost-pagasa-${Environment}-valkey"
+      Engine: valkey
+      EngineVersion: !Ref EngineVersion
+      CacheNodeType: !Ref NodeType
+      NumCacheClusters: !Ref NumCacheClusters
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      SecurityGroupIds:
+        - !Ref CacheSecurityGroupId
+      AutomaticFailoverEnabled: true
+      MultiAZEnabled: true
+      AtRestEncryptionEnabled: true
+      TransitEncryptionEnabled: true
+      SnapshotRetentionLimit: 7
+      SnapshotWindow: "17:00-18:00"
+      PreferredMaintenanceWindow: "sun:18:00-sun:19:00"
+      AutoMinorVersionUpgrade: true
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  ValkeyPrimaryEndpoint:
+    Description: Valkey primary endpoint address
+    Value: !GetAtt ValkeyReplicationGroup.PrimaryEndPoint.Address
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-valkey-endpoint"
+  ValkeyPort:
+    Description: Valkey port
+    Value: !GetAtt ValkeyReplicationGroup.PrimaryEndPoint.Port
+    Export:
+      Name: !Sub "dost-pagasa-${Environment}-valkey-port"

@@ -1,0 +1,8 @@
+[
+  { "ParameterKey": "Environment",       "ParameterValue": "staging" },
+  { "ParameterKey": "InstanceType",      "ParameterValue": "t3.medium" },
+  { "ParameterKey": "MinCapacity",       "ParameterValue": "2" },
+  { "ParameterKey": "MaxCapacity",       "ParameterValue": "4" },
+  { "ParameterKey": "DesiredCapacity",   "ParameterValue": "2" },
+  { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-bastion-key" }
+]
