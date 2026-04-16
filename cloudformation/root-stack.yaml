@@ -70,6 +70,7 @@ Parameters:
   AlarmEmail:
     Type: String
     Default: "dev.pagasa@gmail.com"
+    Description: Email for alarm notifications (reserved for monitoring stack)
   # WAF
   RateLimitPerIp:
     Type: Number
@@ -114,14 +115,11 @@ Resources:
   # 3. Security (shared SGs, WAF, GuardDuty)
   SecurityStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: NetworkStack
     Properties:
       TemplateURL: !Sub "https://${TemplatesBucketName}.s3.ap-southeast-1.amazonaws.com/templates/security.yaml"
       Parameters:
         Environment: prod
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        VpcCidr: !Ref VpcCidr
-        OnPremisesCidr: !Ref OnPremisesCidr
         BastionSecurityGroupId: !GetAtt NetworkStack.Outputs.BastionSecurityGroupId
         RateLimitPerIp: !Ref RateLimitPerIp
       Tags:
@@ -131,7 +129,6 @@ Resources:
   # 4. Cache (shared ElastiCache — uses prod subnets)
   CacheStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
     Properties:
       TemplateURL: !Sub "https://${TemplatesBucketName}.s3.ap-southeast-1.amazonaws.com/templates/cache.yaml"
       Parameters:

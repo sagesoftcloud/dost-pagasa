@@ -1,10 +1,10 @@
 # =============================================================================
-# DOST PAGASA — Network Stack
+# DOST PAGASA - Network Stack
 # Creates: VPC, Public/Private Subnets (shared + per-env), NAT, IGW, VPN, Bastion
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  DOST PAGASA Network Infrastructure — Single VPC with shared public subnets,
+  DOST PAGASA Network Infrastructure - Single VPC with shared public subnets,
   per-environment private subnets, NAT Gateway, Site-to-Site VPN, and Bastion Host.
 
 Parameters:
@@ -92,7 +92,7 @@ Resources:
       InternetGatewayId: !Ref InternetGateway
 
   # ---------------------------------------------------------------------------
-  # Public Subnets (shared — ALB, Bastion)
+  # Public Subnets (shared - ALB, Bastion)
   # ---------------------------------------------------------------------------
   PublicSubnet1:
     Type: AWS::EC2::Subnet
@@ -121,7 +121,7 @@ Resources:
           Value: DOST-PAGASA
 
   # ---------------------------------------------------------------------------
-  # Private Subnets — Dev
+  # Private Subnets - Dev
   # ---------------------------------------------------------------------------
   PrivateSubnetDev1:
     Type: AWS::EC2::Subnet
@@ -152,7 +152,7 @@ Resources:
           Value: dev
 
   # ---------------------------------------------------------------------------
-  # Private Subnets — Staging
+  # Private Subnets - Staging
   # ---------------------------------------------------------------------------
   PrivateSubnetStaging1:
     Type: AWS::EC2::Subnet
@@ -183,7 +183,7 @@ Resources:
           Value: staging
 
   # ---------------------------------------------------------------------------
-  # Private Subnets — Prod
+  # Private Subnets - Prod
   # ---------------------------------------------------------------------------
   PrivateSubnetProd1:
     Type: AWS::EC2::Subnet
@@ -239,7 +239,7 @@ Resources:
           Value: DOST-PAGASA
 
   # ---------------------------------------------------------------------------
-  # Route Tables — Public
+  # Route Tables - Public
   # ---------------------------------------------------------------------------
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -272,7 +272,7 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
 
   # ---------------------------------------------------------------------------
-  # Route Tables — Private (shared by all environments)
+  # Route Tables - Private (shared by all environments)
   # ---------------------------------------------------------------------------
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
@@ -454,7 +454,7 @@ Resources:
   BastionSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: DOST PAGASA Bastion — SSH from on-premises only
+      GroupDescription: DOST PAGASA Bastion - SSH from on-premises only
       VpcId: !Ref Vpc
       SecurityGroupIngress:
         - IpProtocol: tcp

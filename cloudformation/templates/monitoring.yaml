@@ -16,9 +16,6 @@ Parameters:
     Description: Full ALB ARN from compute stack
   AutoScalingGroupName:
     Type: String
-  ValkeyReplicationGroupId:
-    Type: String
-    Default: ""
   AlarmEmail:
     Type: String
     Description: Email address for alarm notifications

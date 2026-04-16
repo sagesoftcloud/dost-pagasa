@@ -46,7 +46,7 @@ Resources:
         Rules:
           - Id: TransitionOldVersions
             Status: Enabled
-            NoncurrentVersionTransition:
+            NoncurrentVersionTransitions:
               - StorageClass: STANDARD_IA
                 TransitionInDays: 30
             NoncurrentVersionExpiration:
