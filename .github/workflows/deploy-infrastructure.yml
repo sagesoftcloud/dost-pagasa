@@ -52,6 +52,26 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Cleanup failed stack if exists
+        run: |
+          STACK="${{ github.event.inputs.stack }}"
+          case "$STACK" in
+            compute-dev|compute-staging|compute-prod)
+              STACK_NAME="dost-pagasa-${STACK}"
+              ;;
+            *)
+              STACK_NAME="dost-pagasa-${STACK}"
+              ;;
+          esac
+          STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
+            echo "🗑️ Deleting failed stack $STACK_NAME..."
+            aws cloudformation delete-stack --stack-name "$STACK_NAME"
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME"
+            echo "✅ Cleaned up"
+          fi
+
       - name: Deploy stack
         run: |
           STACK="${{ github.event.inputs.stack }}"
