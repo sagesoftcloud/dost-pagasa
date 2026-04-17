@@ -1,25 +1,22 @@
 # =============================================================================
-# DOST PAGASA — Infrastructure Deployment Pipeline
-# Shared infra: deploy once on push to main
-# Compute: deploy per environment (dev/staging/prod)
+# DOST PAGASA - Infrastructure Deployment Pipeline
+# Each service deploys as its own independent stack
 # =============================================================================
 name: Deploy Infrastructure
 
 on:
-  push:
-    branches:
-      - develop
-      - main
-    paths:
-      - "cloudformation/**"
   workflow_dispatch:
     inputs:
-      deploy_target:
-        description: "What to deploy"
+      stack:
+        description: "Stack to deploy"
         required: true
         type: choice
         options:
-          - shared
+          - network
+          - security
+          - certificates
+          - cache
+          - storage
           - compute-dev
           - compute-staging
           - compute-prod
@@ -28,300 +25,103 @@ permissions:
   id-token: write
   contents: read
 
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: false
-
 env:
   AWS_REGION: ap-southeast-1
-  TEMPLATES_BUCKET: dost-pagasa-cfn-templates
 
 jobs:
-  # ===========================================================================
-  # Job 1: Validate all templates
-  # ===========================================================================
   validate:
-    name: Validate Templates
+    name: Validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: pip install cfn-lint
+      - run: cfn-lint cloudformation/templates/*.yaml
 
-      - name: Install cfn-lint
-        run: pip install cfn-lint
-
-      - name: Run cfn-lint
-        run: |
-          cfn-lint cloudformation/templates/*.yaml
-          cfn-lint cloudformation/root-stack.yaml
-          echo "✅ cfn-lint passed"
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Validate with AWS API
-        run: |
-          for template in cloudformation/templates/*.yaml; do
-            echo "  Validating $(basename $template)..."
-            aws cloudformation validate-template \
-              --template-body "file://$template" \
-              --region ${{ env.AWS_REGION }}
-          done
-          aws cloudformation validate-template \
-            --template-body "file://cloudformation/root-stack.yaml" \
-            --region ${{ env.AWS_REGION }}
-          echo "✅ All templates valid"
-
-  # ===========================================================================
-  # Job 2: Deploy Shared Infrastructure (VPC, Security, Cache, Storage, etc.)
-  # ===========================================================================
-  deploy-shared:
-    name: Deploy Shared Infrastructure
+  deploy:
+    name: Deploy ${{ github.event.inputs.stack }}
     runs-on: ubuntu-latest
     needs: validate
-    if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target == 'shared')
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload nested templates to S3
+      - name: Deploy stack
         run: |
-          aws s3 sync cloudformation/templates/ \
-            "s3://${{ env.TEMPLATES_BUCKET }}/templates/" \
-            --delete --region ${{ env.AWS_REGION }}
-          echo "✅ Templates uploaded"
+          STACK="${{ github.event.inputs.stack }}"
 
-      - name: Deploy shared stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name dost-pagasa-shared \
-            --template-file cloudformation/root-stack.yaml \
-            --parameter-overrides $(cat cloudformation/parameters/shared.json | python3 -c "
+          case "$STACK" in
+            network)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-network \
+                --template-file cloudformation/templates/network.yaml \
+                --parameter-overrides \
+                  BastionKeyPairName=dost-pagasa-bastion-key \
+                --capabilities CAPABILITY_NAMED_IAM \
+                --tags Project=DOST-PAGASA \
+                --no-fail-on-empty-changeset
+              ;;
+            security)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-security \
+                --template-file cloudformation/templates/security.yaml \
+                --tags Project=DOST-PAGASA \
+                --no-fail-on-empty-changeset
+              ;;
+            certificates)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-certificates \
+                --template-file cloudformation/templates/certificates.yaml \
+                --tags Project=DOST-PAGASA \
+                --no-fail-on-empty-changeset
+              ;;
+            cache)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-cache \
+                --template-file cloudformation/templates/cache.yaml \
+                --tags Project=DOST-PAGASA \
+                --no-fail-on-empty-changeset
+              ;;
+            storage)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-storage \
+                --template-file cloudformation/templates/storage.yaml \
+                --tags Project=DOST-PAGASA \
+                --no-fail-on-empty-changeset
+              ;;
+            compute-dev|compute-staging|compute-prod)
+              ENV="${STACK#compute-}"
+              PARAMS_FILE="cloudformation/parameters/compute-${ENV}.json"
+
+              # Get subnet IDs from network stack exports
+              SUBNET1=$(aws cloudformation list-exports \
+                --query "Exports[?Name=='dost-pagasa-private-subnet-${ENV}-1'].Value" \
+                --output text)
+              SUBNET2=$(aws cloudformation list-exports \
+                --query "Exports[?Name=='dost-pagasa-private-subnet-${ENV}-2'].Value" \
+                --output text)
+
+              aws cloudformation deploy \
+                --stack-name "dost-pagasa-compute-${ENV}" \
+                --template-file cloudformation/templates/compute.yaml \
+                --parameter-overrides \
+                  $(cat "${PARAMS_FILE}" | python3 -c "
           import json, sys
           params = json.load(sys.stdin)
-          print(' '.join([f'{p[\"ParameterKey\"]}={p[\"ParameterValue\"]}' for p in params]))
+          print(' '.join([f'{p[\"ParameterKey\"]}={p[\"ParameterValue\"]}' for p in params if 'REPLACE' not in p['ParameterValue']]))
           ") \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
-            --tags Project=DOST-PAGASA \
-            --region ${{ env.AWS_REGION }} \
-            --no-fail-on-empty-changeset
-          echo "✅ Shared infrastructure deployed"
+                  PrivateSubnet1Id=$SUBNET1 \
+                  PrivateSubnet2Id=$SUBNET2 \
+                --capabilities CAPABILITY_NAMED_IAM \
+                --tags Project=DOST-PAGASA Environment=${ENV} \
+                --no-fail-on-empty-changeset
+              ;;
+          esac
 
-      - name: Print stack outputs
-        if: success()
-        run: |
-          aws cloudformation describe-stacks \
-            --stack-name dost-pagasa-shared \
-            --region ${{ env.AWS_REGION }} \
-            --query "Stacks[0].Outputs" \
-            --output table
-
-  # ===========================================================================
-  # Job 3: Deploy Compute — Dev
-  # ===========================================================================
-  deploy-compute-dev:
-    name: Deploy Compute (dev)
-    runs-on: ubuntu-latest
-    needs: validate
-    if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target == 'compute-dev')
-    environment: dev
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get shared stack outputs
-        id: shared
-        run: |
-          get_output() {
-            aws cloudformation describe-stacks \
-              --stack-name dost-pagasa-shared \
-              --region ${{ env.AWS_REGION }} \
-              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
-              --output text
-          }
-          echo "vpc_id=$(get_output VpcId)" >> "$GITHUB_OUTPUT"
-          echo "public_subnet_1=$(get_output PublicSubnet1Id)" >> "$GITHUB_OUTPUT"
-          echo "public_subnet_2=$(get_output PublicSubnet2Id)" >> "$GITHUB_OUTPUT"
-          echo "private_subnet_1=$(get_output PrivateSubnetDev1Id)" >> "$GITHUB_OUTPUT"
-          echo "private_subnet_2=$(get_output PrivateSubnetDev2Id)" >> "$GITHUB_OUTPUT"
-          echo "alb_sg=$(get_output AlbSecurityGroupId)" >> "$GITHUB_OUTPUT"
-          echo "ec2_sg=$(get_output Ec2SecurityGroupId)" >> "$GITHUB_OUTPUT"
-          echo "waf_arn=$(get_output WafWebAclArn)" >> "$GITHUB_OUTPUT"
-          echo "cert_arn=$(get_output CertificateArn)" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy compute-dev stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name dost-pagasa-compute-dev \
-            --template-file cloudformation/templates/compute.yaml \
-            --parameter-overrides \
-              $(cat cloudformation/parameters/compute-dev.json | python3 -c "
-          import json, sys
-          params = json.load(sys.stdin)
-          print(' '.join([f'{p[\"ParameterKey\"]}={p[\"ParameterValue\"]}' for p in params]))
-          ") \
-              VpcId=${{ steps.shared.outputs.vpc_id }} \
-              PublicSubnet1Id=${{ steps.shared.outputs.public_subnet_1 }} \
-              PublicSubnet2Id=${{ steps.shared.outputs.public_subnet_2 }} \
-              PrivateSubnet1Id=${{ steps.shared.outputs.private_subnet_1 }} \
-              PrivateSubnet2Id=${{ steps.shared.outputs.private_subnet_2 }} \
-              AlbSecurityGroupId=${{ steps.shared.outputs.alb_sg }} \
-              Ec2SecurityGroupId=${{ steps.shared.outputs.ec2_sg }} \
-              WafWebAclArn=${{ steps.shared.outputs.waf_arn }} \
-              AcmCertificateArn=${{ steps.shared.outputs.cert_arn }} \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --tags Project=DOST-PAGASA Environment=dev \
-            --region ${{ env.AWS_REGION }} \
-            --no-fail-on-empty-changeset
-          echo "✅ Compute dev deployed"
-
-  # ===========================================================================
-  # Job 4: Deploy Compute — Staging
-  # ===========================================================================
-  deploy-compute-staging:
-    name: Deploy Compute (staging)
-    runs-on: ubuntu-latest
-    needs: validate
-    if: >
-      github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target == 'compute-staging'
-    environment: staging
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get shared stack outputs
-        id: shared
-        run: |
-          get_output() {
-            aws cloudformation describe-stacks \
-              --stack-name dost-pagasa-shared \
-              --region ${{ env.AWS_REGION }} \
-              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
-              --output text
-          }
-          echo "vpc_id=$(get_output VpcId)" >> "$GITHUB_OUTPUT"
-          echo "public_subnet_1=$(get_output PublicSubnet1Id)" >> "$GITHUB_OUTPUT"
-          echo "public_subnet_2=$(get_output PublicSubnet2Id)" >> "$GITHUB_OUTPUT"
-          echo "private_subnet_1=$(get_output PrivateSubnetStaging1Id)" >> "$GITHUB_OUTPUT"
-          echo "private_subnet_2=$(get_output PrivateSubnetStaging2Id)" >> "$GITHUB_OUTPUT"
-          echo "alb_sg=$(get_output AlbSecurityGroupId)" >> "$GITHUB_OUTPUT"
-          echo "ec2_sg=$(get_output Ec2SecurityGroupId)" >> "$GITHUB_OUTPUT"
-          echo "waf_arn=$(get_output WafWebAclArn)" >> "$GITHUB_OUTPUT"
-          echo "cert_arn=$(get_output CertificateArn)" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy compute-staging stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name dost-pagasa-compute-staging \
-            --template-file cloudformation/templates/compute.yaml \
-            --parameter-overrides \
-              $(cat cloudformation/parameters/compute-staging.json | python3 -c "
-          import json, sys
-          params = json.load(sys.stdin)
-          print(' '.join([f'{p[\"ParameterKey\"]}={p[\"ParameterValue\"]}' for p in params]))
-          ") \
-              VpcId=${{ steps.shared.outputs.vpc_id }} \
-              PublicSubnet1Id=${{ steps.shared.outputs.public_subnet_1 }} \
-              PublicSubnet2Id=${{ steps.shared.outputs.public_subnet_2 }} \
-              PrivateSubnet1Id=${{ steps.shared.outputs.private_subnet_1 }} \
-              PrivateSubnet2Id=${{ steps.shared.outputs.private_subnet_2 }} \
-              AlbSecurityGroupId=${{ steps.shared.outputs.alb_sg }} \
-              Ec2SecurityGroupId=${{ steps.shared.outputs.ec2_sg }} \
-              WafWebAclArn=${{ steps.shared.outputs.waf_arn }} \
-              AcmCertificateArn=${{ steps.shared.outputs.cert_arn }} \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --tags Project=DOST-PAGASA Environment=staging \
-            --region ${{ env.AWS_REGION }} \
-            --no-fail-on-empty-changeset
-          echo "✅ Compute staging deployed"
-
-  # ===========================================================================
-  # Job 5: Deploy Compute — Prod (requires approval)
-  # ===========================================================================
-  deploy-compute-prod:
-    name: Deploy Compute (prod)
-    runs-on: ubuntu-latest
-    needs: validate
-    if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target == 'compute-prod')
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get shared stack outputs
-        id: shared
-        run: |
-          get_output() {
-            aws cloudformation describe-stacks \
-              --stack-name dost-pagasa-shared \
-              --region ${{ env.AWS_REGION }} \
-              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
-              --output text
-          }
-          echo "vpc_id=$(get_output VpcId)" >> "$GITHUB_OUTPUT"
-          echo "public_subnet_1=$(get_output PublicSubnet1Id)" >> "$GITHUB_OUTPUT"
-          echo "public_subnet_2=$(get_output PublicSubnet2Id)" >> "$GITHUB_OUTPUT"
-          echo "private_subnet_1=$(get_output PrivateSubnetProd1Id)" >> "$GITHUB_OUTPUT"
-          echo "private_subnet_2=$(get_output PrivateSubnetProd2Id)" >> "$GITHUB_OUTPUT"
-          echo "alb_sg=$(get_output AlbSecurityGroupId)" >> "$GITHUB_OUTPUT"
-          echo "ec2_sg=$(get_output Ec2SecurityGroupId)" >> "$GITHUB_OUTPUT"
-          echo "waf_arn=$(get_output WafWebAclArn)" >> "$GITHUB_OUTPUT"
-          echo "cert_arn=$(get_output CertificateArn)" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy compute-prod stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name dost-pagasa-compute-prod \
-            --template-file cloudformation/templates/compute.yaml \
-            --parameter-overrides \
-              $(cat cloudformation/parameters/compute-prod.json | python3 -c "
-          import json, sys
-          params = json.load(sys.stdin)
-          print(' '.join([f'{p[\"ParameterKey\"]}={p[\"ParameterValue\"]}' for p in params]))
-          ") \
-              VpcId=${{ steps.shared.outputs.vpc_id }} \
-              PublicSubnet1Id=${{ steps.shared.outputs.public_subnet_1 }} \
-              PublicSubnet2Id=${{ steps.shared.outputs.public_subnet_2 }} \
-              PrivateSubnet1Id=${{ steps.shared.outputs.private_subnet_1 }} \
-              PrivateSubnet2Id=${{ steps.shared.outputs.private_subnet_2 }} \
-              AlbSecurityGroupId=${{ steps.shared.outputs.alb_sg }} \
-              Ec2SecurityGroupId=${{ steps.shared.outputs.ec2_sg }} \
-              WafWebAclArn=${{ steps.shared.outputs.waf_arn }} \
-              AcmCertificateArn=${{ steps.shared.outputs.cert_arn }} \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --tags Project=DOST-PAGASA Environment=prod \
-            --region ${{ env.AWS_REGION }} \
-            --no-fail-on-empty-changeset
-          echo "✅ Compute prod deployed"
+          echo "✅ Stack dost-pagasa-${STACK} deployed"

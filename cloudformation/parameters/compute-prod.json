@@ -1,5 +1,7 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "prod" },
+  { "ParameterKey": "PrivateSubnet1Id",  "ParameterValue": "REPLACE_WITH_PROD_SUBNET_1" },
+  { "ParameterKey": "PrivateSubnet2Id",  "ParameterValue": "REPLACE_WITH_PROD_SUBNET_2" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.large" },
   { "ParameterKey": "MinCapacity",       "ParameterValue": "2" },
   { "ParameterKey": "MaxCapacity",       "ParameterValue": "10" },

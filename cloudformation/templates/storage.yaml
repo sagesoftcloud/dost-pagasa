@@ -1,36 +1,48 @@
 # =============================================================================
-# DOST PAGASA — Storage Stack
-# Creates: S3 Bucket (origin), CloudFront Distribution
+# DOST PAGASA - Storage Stack
+# Imports: certificate ARN from certificates stack
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: >-
-  DOST PAGASA Storage — S3 bucket for static assets with CloudFront CDN,
-  Origin Access Control, and HTTPS enforcement.
+Description: DOST PAGASA S3 + CloudFront CDN.
 
 Parameters:
-  Environment:
-    Type: String
-    AllowedValues: [dev, staging, prod]
-  DomainName:
+  CdnDomainName:
     Type: String
     Default: ""
-    Description: Custom domain for CloudFront (e.g., cdn.pagasa.dost.gov.ph)
-  AcmCertificateArn:
-    Type: String
-    Default: ""
-    Description: ACM certificate ARN in us-east-1 for CloudFront custom domain
 
 Conditions:
-  HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
+  HasCustomDomain: !Not [!Equals [!Ref CdnDomainName, ""]]
 
 Resources:
-  # ---------------------------------------------------------------------------
-  # S3 Bucket — Static Assets Origin
-  # ---------------------------------------------------------------------------
+  AccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "dost-pagasa-access-logs-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldLogs
+            Status: Enabled
+            ExpirationInDays: 365
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      Tags:
+        - Key: Project
+          Value: DOST-PAGASA
+
   AssetsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "dost-pagasa-${Environment}-assets-305366321337"
+      BucketName: !Sub "dost-pagasa-assets-${AWS::AccountId}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -53,39 +65,10 @@ Resources:
               NoncurrentDays: 90
       LoggingConfiguration:
         DestinationBucketName: !Ref AccessLogsBucket
-        LogFilePrefix: !Sub "s3-access-logs/${Environment}/"
+        LogFilePrefix: s3-access-logs/
       Tags:
         - Key: Project
           Value: DOST-PAGASA
-        - Key: Environment
-          Value: !Ref Environment
-
-  AccessLogsBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "dost-pagasa-${Environment}-access-logs-305366321337"
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      LifecycleConfiguration:
-        Rules:
-          - Id: ExpireOldLogs
-            Status: Enabled
-            ExpirationInDays: 365
-      OwnershipControls:
-        Rules:
-          - ObjectOwnership: BucketOwnerPreferred
-      Tags:
-        - Key: Project
-          Value: DOST-PAGASA
-        - Key: Environment
-          Value: !Ref Environment
 
   AssetsBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -102,16 +85,13 @@ Resources:
             Resource: !Sub "${AssetsBucket.Arn}/*"
             Condition:
               StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudfront::305366321337:distribution/${CloudFrontDistribution}"
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
 
-  # ---------------------------------------------------------------------------
-  # CloudFront Distribution
-  # ---------------------------------------------------------------------------
   CloudFrontOAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name: !Sub "dost-pagasa-${Environment}-oac"
+        Name: dost-pagasa-oac
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -121,17 +101,17 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: !Sub "DOST PAGASA ${Environment} CDN"
+        Comment: DOST PAGASA CDN
         DefaultRootObject: index.html
         HttpVersion: http2and3
         PriceClass: PriceClass_200
         Aliases: !If
           - HasCustomDomain
-          - [!Ref DomainName]
+          - [!Ref CdnDomainName]
           - !Ref "AWS::NoValue"
         ViewerCertificate: !If
           - HasCustomDomain
-          - AcmCertificateArn: !Ref AcmCertificateArn
+          - AcmCertificateArn: !ImportValue dost-pagasa-certificate-arn
             SslSupportMethod: sni-only
             MinimumProtocolVersion: TLSv1.2_2021
           - CloudFrontDefaultCertificate: true
@@ -151,31 +131,21 @@ Resources:
         Logging:
           Bucket: !GetAtt AccessLogsBucket.DomainName
           IncludeCookies: false
-          Prefix: !Sub "cloudfront-logs/${Environment}/"
+          Prefix: cloudfront-logs/
       Tags:
         - Key: Project
           Value: DOST-PAGASA
-        - Key: Environment
-          Value: !Ref Environment
 
 Outputs:
   AssetsBucketName:
-    Description: S3 assets bucket name
     Value: !Ref AssetsBucket
     Export:
-      Name: !Sub "dost-pagasa-${Environment}-assets-bucket"
-  AssetsBucketArn:
-    Description: S3 assets bucket ARN
-    Value: !GetAtt AssetsBucket.Arn
-    Export:
-      Name: !Sub "dost-pagasa-${Environment}-assets-bucket-arn"
+      Name: dost-pagasa-assets-bucket
   CloudFrontDistributionId:
-    Description: CloudFront distribution ID
     Value: !Ref CloudFrontDistribution
     Export:
-      Name: !Sub "dost-pagasa-${Environment}-cloudfront-id"
+      Name: dost-pagasa-cloudfront-id
   CloudFrontDomainName:
-    Description: CloudFront domain name
     Value: !GetAtt CloudFrontDistribution.DomainName
     Export:
-      Name: !Sub "dost-pagasa-${Environment}-cloudfront-domain"
+      Name: dost-pagasa-cloudfront-domain

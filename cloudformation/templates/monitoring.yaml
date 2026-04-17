@@ -1,32 +1,20 @@
 # =============================================================================
-# DOST PAGASA — Monitoring Stack
-# Creates: CloudWatch Dashboard, Alarms, SNS Topic for notifications
+# DOST PAGASA - Monitoring Stack
+# Imports: ALB ARN, ASG name from compute stack
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: >-
-  DOST PAGASA Monitoring — CloudWatch dashboard, critical alarms for
-  ALB, ASG, ElastiCache, and SNS notification topic.
+Description: DOST PAGASA Monitoring - CloudWatch dashboard and alarms.
 
 Parameters:
   Environment:
     Type: String
     AllowedValues: [dev, staging, prod]
-  AlbArn:
-    Type: String
-    Description: Full ALB ARN from compute stack
-  AutoScalingGroupName:
-    Type: String
   AlarmEmail:
     Type: String
-    Description: Email address for alarm notifications
+    Default: "dev.pagasa@gmail.com"
     AllowedPattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
 
 Resources:
-  # ---------------------------------------------------------------------------
-  # SNS Topic for Alarm Notifications
-  # ---------------------------------------------------------------------------
-  # ⚠️ MANUAL ACTION: After stack creation, check the email inbox and
-  #   confirm the SNS subscription to receive alarm notifications.
   AlarmTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -36,8 +24,6 @@ Resources:
       Tags:
         - Key: Project
           Value: DOST-PAGASA
-        - Key: Environment
-          Value: !Ref Environment
 
   AlarmEmailSubscription:
     Type: AWS::SNS::Subscription
@@ -45,55 +31,6 @@ Resources:
       TopicArn: !Ref AlarmTopic
       Protocol: email
       Endpoint: !Ref AlarmEmail
-
-  # ---------------------------------------------------------------------------
-  # CloudWatch Alarms
-  # ---------------------------------------------------------------------------
-  Alb5xxAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub "dost-pagasa-${Environment}-alb-5xx-high"
-      AlarmDescription: ALB 5xx errors exceed threshold
-      Namespace: AWS/ApplicationELB
-      MetricName: HTTPCode_ELB_5XX_Count
-      Dimensions:
-        - Name: LoadBalancer
-          Value: !Select
-            - 1
-            - !Split
-              - "app/"
-              - !Select [5, !Split [":", !Ref AlbArn]]
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 2
-      Threshold: 50
-      ComparisonOperator: GreaterThanThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
-  AlbLatencyAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub "dost-pagasa-${Environment}-alb-latency-high"
-      AlarmDescription: ALB target response time exceeds 3 seconds
-      Namespace: AWS/ApplicationELB
-      MetricName: TargetResponseTime
-      Dimensions:
-        - Name: LoadBalancer
-          Value: !Select
-            - 1
-            - !Split
-              - "app/"
-              - !Select [5, !Split [":", !Ref AlbArn]]
-      Statistic: Average
-      Period: 300
-      EvaluationPeriods: 3
-      Threshold: 3
-      ComparisonOperator: GreaterThanThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
 
   AsgCpuAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -104,7 +41,8 @@ Resources:
       MetricName: CPUUtilization
       Dimensions:
         - Name: AutoScalingGroupName
-          Value: !Ref AutoScalingGroupName
+          Value: !ImportValue
+            Fn::Sub: "dost-pagasa-${Environment}-asg-name"
       Statistic: Average
       Period: 300
       EvaluationPeriods: 3
@@ -114,102 +52,8 @@ Resources:
       AlarmActions:
         - !Ref AlarmTopic
 
-  AsgUnhealthyAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub "dost-pagasa-${Environment}-unhealthy-hosts"
-      AlarmDescription: ALB has unhealthy targets
-      Namespace: AWS/ApplicationELB
-      MetricName: UnHealthyHostCount
-      Dimensions:
-        - Name: LoadBalancer
-          Value: !Select
-            - 1
-            - !Split
-              - "app/"
-              - !Select [5, !Split [":", !Ref AlbArn]]
-      Statistic: Maximum
-      Period: 300
-      EvaluationPeriods: 2
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmTopic
-
-  # ---------------------------------------------------------------------------
-  # CloudWatch Dashboard
-  # ---------------------------------------------------------------------------
-  Dashboard:
-    Type: AWS::CloudWatch::Dashboard
-    Properties:
-      DashboardName: !Sub "DOST-PAGASA-${Environment}"
-      DashboardBody: !Sub |
-        {
-          "widgets": [
-            {
-              "type": "metric",
-              "x": 0, "y": 0, "width": 12, "height": 6,
-              "properties": {
-                "title": "ALB Request Count",
-                "metrics": [
-                  ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${AutoScalingGroupName}"]
-                ],
-                "region": "ap-southeast-1",
-                "period": 300,
-                "stat": "Sum"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 12, "y": 0, "width": 12, "height": 6,
-              "properties": {
-                "title": "ASG CPU Utilization",
-                "metrics": [
-                  ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${AutoScalingGroupName}"]
-                ],
-                "region": "ap-southeast-1",
-                "period": 300,
-                "stat": "Average"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0, "y": 6, "width": 12, "height": 6,
-              "properties": {
-                "title": "ALB 5xx Errors",
-                "metrics": [
-                  ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", "${AutoScalingGroupName}"]
-                ],
-                "region": "ap-southeast-1",
-                "period": 300,
-                "stat": "Sum"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 12, "y": 6, "width": 12, "height": 6,
-              "properties": {
-                "title": "ALB Target Response Time",
-                "metrics": [
-                  ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "${AutoScalingGroupName}"]
-                ],
-                "region": "ap-southeast-1",
-                "period": 300,
-                "stat": "Average"
-              }
-            }
-          ]
-        }
-
 Outputs:
   AlarmTopicArn:
-    Description: SNS alarm topic ARN
     Value: !Ref AlarmTopic
     Export:
       Name: !Sub "dost-pagasa-${Environment}-alarm-topic-arn"
-  DashboardName:
-    Description: CloudWatch dashboard name
-    Value: !Ref Dashboard
-    Export:
-      Name: !Sub "dost-pagasa-${Environment}-dashboard"
