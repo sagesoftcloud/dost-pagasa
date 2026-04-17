@@ -3,8 +3,8 @@
   { "ParameterKey": "PrivateSubnet1Id",  "ParameterValue": "REPLACE_WITH_STAGING_SUBNET_1" },
   { "ParameterKey": "PrivateSubnet2Id",  "ParameterValue": "REPLACE_WITH_STAGING_SUBNET_2" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.medium" },
-  { "ParameterKey": "MinCapacity",       "ParameterValue": "2" },
-  { "ParameterKey": "MaxCapacity",       "ParameterValue": "4" },
-  { "ParameterKey": "DesiredCapacity",   "ParameterValue": "2" },
+  { "ParameterKey": "MinCapacity",       "ParameterValue": "1" },
+  { "ParameterKey": "MaxCapacity",       "ParameterValue": "1" },
+  { "ParameterKey": "DesiredCapacity",   "ParameterValue": "1" },
   { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-staging-key" }
 ]

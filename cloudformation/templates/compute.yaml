@@ -1,9 +1,11 @@
 # =============================================================================
 # DOST PAGASA - Compute Stack (deploy per environment)
+# Dev/Staging: single EC2 via ALB (no auto-scaling)
+# Prod: ASG with auto-scaling + ALB
 # Imports: VPC, subnets, SGs, WAF, cert from other stacks
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: DOST PAGASA Compute - ALB, ASG, Launch Template per environment.
+Description: DOST PAGASA Compute - ALB, EC2/ASG, Launch Template per environment.
 
 Parameters:
   Environment:
@@ -21,17 +23,23 @@ Parameters:
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
   MinCapacity:
     Type: Number
-    Default: 2
+    Default: 1
   MaxCapacity:
     Type: Number
-    Default: 6
+    Default: 1
   DesiredCapacity:
     Type: Number
-    Default: 2
+    Default: 1
   KeyPairName:
     Type: String
 
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+
 Resources:
+  # ---------------------------------------------------------------------------
+  # IAM
+  # ---------------------------------------------------------------------------
   Ec2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -55,6 +63,9 @@ Resources:
       Roles:
         - !Ref Ec2InstanceRole
 
+  # ---------------------------------------------------------------------------
+  # ALB (all environments)
+  # ---------------------------------------------------------------------------
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -122,6 +133,9 @@ Resources:
             Port: "443"
             StatusCode: HTTP_301
 
+  # ---------------------------------------------------------------------------
+  # Launch Template (all environments)
+  # ---------------------------------------------------------------------------
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -165,6 +179,10 @@ Resources:
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
             echo "DOST PAGASA ${Environment} initialized" > /var/log/init.log
 
+  # ---------------------------------------------------------------------------
+  # ASG — all environments, but dev/staging fixed at 1 instance (no scaling)
+  # Prod gets auto-scaling policy
+  # ---------------------------------------------------------------------------
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -194,12 +212,16 @@ Resources:
           PropagateAtLaunch: true
     UpdatePolicy:
       AutoScalingRollingUpdate:
-        MinInstancesInService: 1
+        MinInstancesInService: !If [IsProd, 1, 0]
         MaxBatchSize: 1
         PauseTime: PT5M
 
+  # ---------------------------------------------------------------------------
+  # Scaling Policy (prod only)
+  # ---------------------------------------------------------------------------
   ScalingPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
+    Condition: IsProd
     Properties:
       AutoScalingGroupName: !Ref AutoScalingGroup
       PolicyType: TargetTrackingScaling

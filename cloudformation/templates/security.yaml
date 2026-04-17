@@ -10,6 +10,10 @@ Parameters:
   RateLimitPerIp:
     Type: Number
     Default: 2000
+  OnPremisesCidr:
+    Type: String
+    Default: "10.100.100.0/24"
+    Description: On-premises network CIDR for database access via VPN
 
 Resources:
   AlbSecurityGroup:
@@ -70,7 +74,7 @@ Resources:
   CacheSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: DOST PAGASA ElastiCache - EC2 instances only
+      GroupDescription: DOST PAGASA ElastiCache - EC2 and on-premises database
       VpcId: !ImportValue dost-pagasa-vpc-id
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -78,6 +82,11 @@ Resources:
           ToPort: 6379
           SourceSecurityGroupId: !Ref Ec2SecurityGroup
           Description: Valkey from EC2 instances
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: !Ref OnPremisesCidr
+          Description: Valkey from on-premises database via VPN
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: "0.0.0.0/0"

@@ -1,6 +1,6 @@
 # =============================================================================
 # DOST PAGASA - Monitoring Stack
-# Imports: ALB ARN, ASG name from compute stack
+# Imports: ASG name from compute stack
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
 Description: DOST PAGASA Monitoring - CloudWatch dashboard and alarms.
