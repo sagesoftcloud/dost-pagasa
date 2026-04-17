@@ -9,6 +9,9 @@ Parameters:
   CdnDomainName:
     Type: String
     Default: ""
+  AcmCertificateArn:
+    Type: String
+    Default: ""
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref CdnDomainName, ""]]
@@ -111,7 +114,7 @@ Resources:
           - !Ref "AWS::NoValue"
         ViewerCertificate: !If
           - HasCustomDomain
-          - AcmCertificateArn: !ImportValue dost-pagasa-certificate-arn
+          - AcmCertificateArn: !Ref AcmCertificateArn
             SslSupportMethod: sni-only
             MinimumProtocolVersion: TLSv1.2_2021
           - CloudFrontDefaultCertificate: true
