@@ -117,9 +117,7 @@ jobs:
               ;;
             compute-dev|compute-staging|compute-prod)
               ENV="${STACK#compute-}"
-              PARAMS_FILE="cloudformation/parameters/compute-${ENV}.json"
 
-              # Get subnet IDs from network stack exports
               SUBNET1=$(aws cloudformation list-exports \
                 --query "Exports[?Name=='dost-pagasa-private-subnet-${ENV}-1'].Value" \
                 --output text)
@@ -127,17 +125,25 @@ jobs:
                 --query "Exports[?Name=='dost-pagasa-private-subnet-${ENV}-2'].Value" \
                 --output text)
 
+              # Set instance size per environment
+              case "$ENV" in
+                dev)     INSTANCE=t3.small;  MIN=1; MAX=2;  DESIRED=1; KEY=dost-pagasa-dev-key ;;
+                staging) INSTANCE=t3.medium; MIN=2; MAX=4;  DESIRED=2; KEY=dost-pagasa-staging-key ;;
+                prod)    INSTANCE=t3.large;  MIN=2; MAX=10; DESIRED=3; KEY=dost-pagasa-prod-key ;;
+              esac
+
               aws cloudformation deploy \
                 --stack-name "dost-pagasa-compute-${ENV}" \
                 --template-file cloudformation/templates/compute.yaml \
                 --parameter-overrides \
-                  $(cat "${PARAMS_FILE}" | python3 -c "
-          import json, sys
-          params = json.load(sys.stdin)
-          print(' '.join([f'{p[\"ParameterKey\"]}={p[\"ParameterValue\"]}' for p in params if 'REPLACE' not in p['ParameterValue']]))
-          ") \
+                  Environment=$ENV \
                   PrivateSubnet1Id=$SUBNET1 \
                   PrivateSubnet2Id=$SUBNET2 \
+                  InstanceType=$INSTANCE \
+                  MinCapacity=$MIN \
+                  MaxCapacity=$MAX \
+                  DesiredCapacity=$DESIRED \
+                  KeyPairName=$KEY \
                 --capabilities CAPABILITY_NAMED_IAM \
                 --tags Project=DOST-PAGASA Environment=${ENV} \
                 --no-fail-on-empty-changeset
