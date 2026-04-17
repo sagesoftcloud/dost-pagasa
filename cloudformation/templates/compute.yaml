@@ -1,9 +1,9 @@
 # =============================================================================
 # DOST PAGASA - Compute Stack (deploy per environment)
-# Imports: VPC, subnets, SGs, WAF from other stacks
+# Dev/Staging: standalone EC2 | Prod: ASG with ALB
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: DOST PAGASA Compute - ALB, ASG, Launch Template per environment.
+Description: DOST PAGASA Compute - EC2 instances per environment.
 
 Parameters:
   Environment:
@@ -19,26 +19,32 @@ Parameters:
   AmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
-  MinCapacity:
-    Type: Number
-    Default: 2
-  MaxCapacity:
-    Type: Number
-    Default: 6
-  DesiredCapacity:
-    Type: Number
-    Default: 2
   KeyPairName:
     Type: String
+  MinCapacity:
+    Type: Number
+    Default: 1
+  MaxCapacity:
+    Type: Number
+    Default: 2
+  DesiredCapacity:
+    Type: Number
+    Default: 1
   AcmCertificateArn:
     Type: String
     Default: ""
-    Description: ACM cert ARN. Leave empty for HTTP-only mode.
 
 Conditions:
-  HasCertificate: !Not [!Equals [!Ref AcmCertificateArn, ""]]
+  IsProd: !Equals [!Ref Environment, "prod"]
+  IsNotProd: !Not [!Equals [!Ref Environment, "prod"]]
+  HasCertificate: !And
+    - !Equals [!Ref Environment, "prod"]
+    - !Not [!Equals [!Ref AcmCertificateArn, ""]]
 
 Resources:
+  # ---------------------------------------------------------------------------
+  # IAM Role (all environments)
+  # ---------------------------------------------------------------------------
   Ec2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -62,10 +68,53 @@ Resources:
       Roles:
         - !Ref Ec2InstanceRole
 
+  # ---------------------------------------------------------------------------
+  # Standalone EC2 (dev/staging only)
+  # ---------------------------------------------------------------------------
+  StandaloneInstance:
+    Type: AWS::EC2::Instance
+    Condition: IsNotProd
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AmiId
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PrivateSubnet1Id
+      IamInstanceProfile: !Ref Ec2InstanceProfile
+      SecurityGroupIds:
+        - !ImportValue dost-pagasa-ec2-sg-id
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
+      Tags:
+        - Key: Name
+          Value: !Sub "dost-pagasa-${Environment}-app"
+        - Key: Project
+          Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf update -y
+          dnf install -y amazon-cloudwatch-agent
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
+          echo "DOST PAGASA ${Environment} initialized" > /var/log/init.log
+
+  # ---------------------------------------------------------------------------
+  # ALB + ASG (prod only)
+  # ---------------------------------------------------------------------------
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: IsProd
     Properties:
-      Name: !Sub "dost-pagasa-${Environment}-alb"
+      Name: dost-pagasa-prod-alb
       Scheme: internet-facing
       Type: application
       Subnets:
@@ -77,18 +126,20 @@ Resources:
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
-          Value: !Ref Environment
+          Value: prod
 
   WafAlbAssociation:
     Type: AWS::WAFv2::WebACLAssociation
+    Condition: IsProd
     Properties:
       ResourceArn: !Ref ApplicationLoadBalancer
       WebACLArn: !ImportValue dost-pagasa-waf-acl-arn
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: IsProd
     Properties:
-      Name: !Sub "dost-pagasa-${Environment}-tg"
+      Name: dost-pagasa-prod-tg
       VpcId: !ImportValue dost-pagasa-vpc-id
       Port: 80
       Protocol: HTTP
@@ -103,9 +154,9 @@ Resources:
         - Key: Project
           Value: DOST-PAGASA
 
-  # HTTP listener — always created
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: IsProd
     Properties:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 80
@@ -121,7 +172,6 @@ Resources:
           - Type: forward
             TargetGroupArn: !Ref TargetGroup
 
-  # HTTPS listener — only if certificate is provided
   HttpsListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Condition: HasCertificate
@@ -138,8 +188,9 @@ Resources:
 
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
+    Condition: IsProd
     Properties:
-      LaunchTemplateName: !Sub "dost-pagasa-${Environment}-lt"
+      LaunchTemplateName: dost-pagasa-prod-lt
       LaunchTemplateData:
         ImageId: !Ref AmiId
         InstanceType: !Ref InstanceType
@@ -165,24 +216,25 @@ Resources:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: !Sub "dost-pagasa-${Environment}-app"
+                Value: dost-pagasa-prod-app
               - Key: Project
                 Value: DOST-PAGASA
               - Key: Environment
-                Value: !Ref Environment
+                Value: prod
         UserData:
-          Fn::Base64: !Sub |
+          Fn::Base64: |
             #!/bin/bash
             set -euxo pipefail
             dnf update -y
             dnf install -y amazon-cloudwatch-agent
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
-            echo "DOST PAGASA ${Environment} initialized" > /var/log/init.log
+            echo "DOST PAGASA prod initialized" > /var/log/init.log
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
+    Condition: IsProd
     Properties:
-      AutoScalingGroupName: !Sub "dost-pagasa-${Environment}-asg"
+      AutoScalingGroupName: dost-pagasa-prod-asg
       LaunchTemplate:
         LaunchTemplateId: !Ref LaunchTemplate
         Version: !GetAtt LaunchTemplate.LatestVersionNumber
@@ -198,13 +250,13 @@ Resources:
       HealthCheckGracePeriod: 300
       Tags:
         - Key: Name
-          Value: !Sub "dost-pagasa-${Environment}-asg"
+          Value: dost-pagasa-prod-asg
           PropagateAtLaunch: false
         - Key: Project
           Value: DOST-PAGASA
           PropagateAtLaunch: true
         - Key: Environment
-          Value: !Ref Environment
+          Value: prod
           PropagateAtLaunch: true
     UpdatePolicy:
       AutoScalingRollingUpdate:
@@ -214,6 +266,7 @@ Resources:
 
   ScalingPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
+    Condition: IsProd
     Properties:
       AutoScalingGroupName: !Ref AutoScalingGroup
       PolicyType: TargetTrackingScaling
@@ -223,15 +276,16 @@ Resources:
         TargetValue: 60.0
 
 Outputs:
+  InstanceId:
+    Condition: IsNotProd
+    Value: !Ref StandaloneInstance
   AlbDnsName:
+    Condition: IsProd
     Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
-      Name: !Sub "dost-pagasa-${Environment}-alb-dns"
-  AlbArn:
-    Value: !Ref ApplicationLoadBalancer
-    Export:
-      Name: !Sub "dost-pagasa-${Environment}-alb-arn"
+      Name: dost-pagasa-prod-alb-dns
   AutoScalingGroupName:
+    Condition: IsProd
     Value: !Ref AutoScalingGroup
     Export:
-      Name: !Sub "dost-pagasa-${Environment}-asg-name"
+      Name: dost-pagasa-prod-asg-name
