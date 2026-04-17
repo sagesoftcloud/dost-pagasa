@@ -1,11 +1,9 @@
 # =============================================================================
 # DOST PAGASA - Compute Stack (deploy per environment)
-# Dev/Staging: single EC2 via ALB (no auto-scaling)
-# Prod: ASG with auto-scaling + ALB
-# Imports: VPC, subnets, SGs, WAF, cert from other stacks
+# Imports: VPC, subnets, SGs, WAF from other stacks
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: DOST PAGASA Compute - ALB, EC2/ASG, Launch Template per environment.
+Description: DOST PAGASA Compute - ALB, ASG, Launch Template per environment.
 
 Parameters:
   Environment:
@@ -23,23 +21,24 @@ Parameters:
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
   MinCapacity:
     Type: Number
-    Default: 1
+    Default: 2
   MaxCapacity:
     Type: Number
-    Default: 1
+    Default: 6
   DesiredCapacity:
     Type: Number
-    Default: 1
+    Default: 2
   KeyPairName:
     Type: String
+  AcmCertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM cert ARN. Leave empty for HTTP-only mode.
 
 Conditions:
-  IsProd: !Equals [!Ref Environment, prod]
+  HasCertificate: !Not [!Equals [!Ref AcmCertificateArn, ""]]
 
 Resources:
-  # ---------------------------------------------------------------------------
-  # IAM
-  # ---------------------------------------------------------------------------
   Ec2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -63,9 +62,6 @@ Resources:
       Roles:
         - !Ref Ec2InstanceRole
 
-  # ---------------------------------------------------------------------------
-  # ALB (all environments)
-  # ---------------------------------------------------------------------------
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -107,19 +103,7 @@ Resources:
         - Key: Project
           Value: DOST-PAGASA
 
-  HttpsListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 443
-      Protocol: HTTPS
-      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
-      Certificates:
-        - CertificateArn: !ImportValue dost-pagasa-certificate-arn
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref TargetGroup
-
+  # HTTP listener — always created
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -127,15 +111,31 @@ Resources:
       Port: 80
       Protocol: HTTP
       DefaultActions:
-        - Type: redirect
-          RedirectConfig:
-            Protocol: HTTPS
-            Port: "443"
-            StatusCode: HTTP_301
+        - !If
+          - HasCertificate
+          - Type: redirect
+            RedirectConfig:
+              Protocol: HTTPS
+              Port: "443"
+              StatusCode: HTTP_301
+          - Type: forward
+            TargetGroupArn: !Ref TargetGroup
 
-  # ---------------------------------------------------------------------------
-  # Launch Template (all environments)
-  # ---------------------------------------------------------------------------
+  # HTTPS listener — only if certificate is provided
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasCertificate
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates:
+        - CertificateArn: !Ref AcmCertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -179,10 +179,6 @@ Resources:
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
             echo "DOST PAGASA ${Environment} initialized" > /var/log/init.log
 
-  # ---------------------------------------------------------------------------
-  # ASG — all environments, but dev/staging fixed at 1 instance (no scaling)
-  # Prod gets auto-scaling policy
-  # ---------------------------------------------------------------------------
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -212,16 +208,12 @@ Resources:
           PropagateAtLaunch: true
     UpdatePolicy:
       AutoScalingRollingUpdate:
-        MinInstancesInService: !If [IsProd, 1, 0]
+        MinInstancesInService: 1
         MaxBatchSize: 1
         PauseTime: PT5M
 
-  # ---------------------------------------------------------------------------
-  # Scaling Policy (prod only)
-  # ---------------------------------------------------------------------------
   ScalingPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
-    Condition: IsProd
     Properties:
       AutoScalingGroupName: !Ref AutoScalingGroup
       PolicyType: TargetTrackingScaling
