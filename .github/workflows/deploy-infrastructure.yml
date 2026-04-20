@@ -46,7 +46,6 @@ jobs:
     name: Deploy ${{ github.event.inputs.stack }}
     runs-on: ubuntu-latest
     needs: validate
-    environment: ${{ contains(github.event.inputs.stack, 'prod') && 'production' || '' }}
     steps:
       - uses: actions/checkout@v4
 
