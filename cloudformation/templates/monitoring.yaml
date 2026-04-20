@@ -40,7 +40,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub "dost-pagasa-${Environment}-asg-cpu-high"
-      AlarmDescription: ASG average CPU exceeds 80%
+      AlarmDescription: ASG average CPU exceeds 50%
       Namespace: AWS/EC2
       MetricName: CPUUtilization
       Dimensions:
@@ -50,7 +50,7 @@ Resources:
       Statistic: Average
       Period: 300
       EvaluationPeriods: 3
-      Threshold: 80
+      Threshold: 50
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: breaching
       AlarmActions:
