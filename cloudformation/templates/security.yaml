@@ -1,25 +1,23 @@
 # =============================================================================
-# DOST PAGASA - Security Stack
-# Creates: WAF WebACL, Security Groups
-# Imports: VpcId, BastionSecurityGroupId from network stack
+# DOST PAGASA - Security Stack (deploy per environment)
+# Creates: Security Groups, WAF WebACL
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: DOST PAGASA Security - WAF WebACL and Security Groups.
+Description: DOST PAGASA Security - per-environment Security Groups and WAF.
 
 Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
   RateLimitPerIp:
     Type: Number
     Default: 2000
-  OnPremisesCidr:
-    Type: String
-    Default: "10.100.100.0/24"
-    Description: On-premises network CIDR for database access via VPN
 
 Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: DOST PAGASA ALB - allows HTTP/HTTPS from internet
+      GroupDescription: !Sub "DOST PAGASA ${Environment} ALB - HTTP/HTTPS from internet"
       VpcId: !ImportValue dost-pagasa-vpc-id
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -37,14 +35,16 @@ Resources:
           CidrIp: "0.0.0.0/0"
       Tags:
         - Key: Name
-          Value: dost-pagasa-alb-sg
+          Value: !Sub "dost-pagasa-${Environment}-alb-sg"
         - Key: Project
           Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
 
   Ec2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: DOST PAGASA EC2 - ALB and bastion traffic only
+      GroupDescription: !Sub "DOST PAGASA ${Environment} EC2 - ALB and bastion only"
       VpcId: !ImportValue dost-pagasa-vpc-id
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -67,14 +67,16 @@ Resources:
           CidrIp: "0.0.0.0/0"
       Tags:
         - Key: Name
-          Value: dost-pagasa-ec2-sg
+          Value: !Sub "dost-pagasa-${Environment}-ec2-sg"
         - Key: Project
           Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
 
   CacheSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: DOST PAGASA ElastiCache - EC2 and on-premises database
+      GroupDescription: !Sub "DOST PAGASA ${Environment} ElastiCache - EC2 only"
       VpcId: !ImportValue dost-pagasa-vpc-id
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -82,32 +84,29 @@ Resources:
           ToPort: 6379
           SourceSecurityGroupId: !Ref Ec2SecurityGroup
           Description: Valkey from EC2 instances
-        - IpProtocol: tcp
-          FromPort: 6379
-          ToPort: 6379
-          CidrIp: !Ref OnPremisesCidr
-          Description: Valkey from on-premises database via VPN
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: "0.0.0.0/0"
       Tags:
         - Key: Name
-          Value: dost-pagasa-cache-sg
+          Value: !Sub "dost-pagasa-${Environment}-cache-sg"
         - Key: Project
           Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
 
   WafWebAcl:
     Type: AWS::WAFv2::WebACL
     Properties:
-      Name: dost-pagasa-waf
+      Name: !Sub "dost-pagasa-${Environment}-waf"
       Scope: REGIONAL
       DefaultAction:
         Allow: {}
-      Description: DOST PAGASA WAF - protects ALB
+      Description: !Sub "DOST PAGASA ${Environment} WAF"
       VisibilityConfig:
         SampledRequestsEnabled: true
         CloudWatchMetricsEnabled: true
-        MetricName: dost-pagasa-waf
+        MetricName: !Sub "dost-pagasa-${Environment}-waf"
       Rules:
         - Name: AWSManagedRulesCommonRuleSet
           Priority: 1
@@ -172,21 +171,23 @@ Resources:
       Tags:
         - Key: Project
           Value: DOST-PAGASA
+        - Key: Environment
+          Value: !Ref Environment
 
 Outputs:
   AlbSecurityGroupId:
     Value: !Ref AlbSecurityGroup
     Export:
-      Name: dost-pagasa-alb-sg-id
+      Name: !Sub "dost-pagasa-${Environment}-alb-sg-id"
   Ec2SecurityGroupId:
     Value: !Ref Ec2SecurityGroup
     Export:
-      Name: dost-pagasa-ec2-sg-id
+      Name: !Sub "dost-pagasa-${Environment}-ec2-sg-id"
   CacheSecurityGroupId:
     Value: !Ref CacheSecurityGroup
     Export:
-      Name: dost-pagasa-cache-sg-id
+      Name: !Sub "dost-pagasa-${Environment}-cache-sg-id"
   WafWebAclArn:
     Value: !GetAtt WafWebAcl.Arn
     Export:
-      Name: dost-pagasa-waf-acl-arn
+      Name: !Sub "dost-pagasa-${Environment}-waf-acl-arn"

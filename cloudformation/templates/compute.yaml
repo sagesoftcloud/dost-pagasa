@@ -81,7 +81,8 @@ Resources:
       SubnetId: !Ref PrivateSubnet1Id
       IamInstanceProfile: !Ref Ec2InstanceProfile
       SecurityGroupIds:
-        - !ImportValue dost-pagasa-ec2-sg-id
+        - !ImportValue
+            Fn::Sub: "dost-pagasa-${Environment}-ec2-sg-id"
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -121,7 +122,8 @@ Resources:
         - !ImportValue dost-pagasa-public-subnet-1
         - !ImportValue dost-pagasa-public-subnet-2
       SecurityGroups:
-        - !ImportValue dost-pagasa-alb-sg-id
+        - !ImportValue
+            Fn::Sub: "dost-pagasa-${Environment}-alb-sg-id"
       Tags:
         - Key: Project
           Value: DOST-PAGASA
@@ -133,7 +135,8 @@ Resources:
     Condition: IsProd
     Properties:
       ResourceArn: !Ref ApplicationLoadBalancer
-      WebACLArn: !ImportValue dost-pagasa-waf-acl-arn
+      WebACLArn: !ImportValue
+            Fn::Sub: "dost-pagasa-${Environment}-waf-acl-arn"
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -198,7 +201,8 @@ Resources:
         IamInstanceProfile:
           Arn: !GetAtt Ec2InstanceProfile.Arn
         SecurityGroupIds:
-          - !ImportValue dost-pagasa-ec2-sg-id
+          - !ImportValue
+            Fn::Sub: "dost-pagasa-${Environment}-ec2-sg-id"
         BlockDeviceMappings:
           - DeviceName: /dev/xvda
             Ebs:

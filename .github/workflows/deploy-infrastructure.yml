@@ -13,7 +13,9 @@ on:
         type: choice
         options:
           - network
-          - security
+          - security-dev
+          - security-staging
+          - security-prod
           - certificates
           - cache
           - storage
@@ -56,7 +58,7 @@ jobs:
         run: |
           STACK="${{ github.event.inputs.stack }}"
           case "$STACK" in
-            compute-dev|compute-staging|compute-prod)
+            compute-dev|compute-staging|compute-prod|security-dev|security-staging|security-prod)
               STACK_NAME="dost-pagasa-${STACK}"
               ;;
             *)
@@ -93,11 +95,13 @@ jobs:
                 --tags Project=DOST-PAGASA \
                 --no-fail-on-empty-changeset
               ;;
-            security)
+            security-dev|security-staging|security-prod)
+              ENV="${STACK#security-}"
               aws cloudformation deploy \
-                --stack-name dost-pagasa-security \
+                --stack-name "dost-pagasa-security-${ENV}" \
                 --template-file cloudformation/templates/security.yaml \
-                --tags Project=DOST-PAGASA \
+                --parameter-overrides Environment=$ENV \
+                --tags Project=DOST-PAGASA Environment=${ENV} \
                 --no-fail-on-empty-changeset
               ;;
             certificates)
