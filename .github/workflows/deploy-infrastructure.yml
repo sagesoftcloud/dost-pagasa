@@ -36,11 +36,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
-          python-version: "3.12"
-      - run: pip install cfn-lint==1.31.1
-      - run: cfn-lint cloudformation/templates/*.yaml
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Validate templates
+        run: |
+          for template in cloudformation/templates/*.yaml; do
+            echo "Validating $(basename $template)..."
+            aws cloudformation validate-template \
+              --template-body "file://$template"
+          done
+          echo "✅ All templates valid"
 
   deploy:
     name: Deploy ${{ github.event.inputs.stack }}
