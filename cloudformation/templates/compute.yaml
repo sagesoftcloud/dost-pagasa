@@ -238,10 +238,10 @@ Resources:
               - Key: Name
                 Value: dost-pagasa-prod-app
               - Key: Agency
-          Value: DOST-PAGASA
-        - Key: Locality
-          Value: Quezon City
-        - Key: Project
+                Value: DOST-PAGASA
+              - Key: Locality
+                Value: Quezon City
+              - Key: Project
                 Value: DOST-PAGASA
               - Key: Environment
                 Value: prod
@@ -278,8 +278,10 @@ Resources:
           PropagateAtLaunch: false
         - Key: Agency
           Value: DOST-PAGASA
+          PropagateAtLaunch: true
         - Key: Locality
           Value: Quezon City
+          PropagateAtLaunch: true
         - Key: Project
           Value: DOST-PAGASA
           PropagateAtLaunch: true
