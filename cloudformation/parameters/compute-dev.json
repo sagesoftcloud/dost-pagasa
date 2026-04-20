@@ -1,10 +1,5 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "dev" },
-  { "ParameterKey": "PrivateSubnet1Id",  "ParameterValue": "REPLACE_WITH_DEV_SUBNET_1" },
-  { "ParameterKey": "PrivateSubnet2Id",  "ParameterValue": "REPLACE_WITH_DEV_SUBNET_2" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.small" },
-  { "ParameterKey": "MinCapacity",       "ParameterValue": "1" },
-  { "ParameterKey": "MaxCapacity",       "ParameterValue": "1" },
-  { "ParameterKey": "DesiredCapacity",   "ParameterValue": "1" },
   { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-dev-key" }
 ]
