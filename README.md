@@ -10,12 +10,12 @@ VPC
 │   ├── Bastion Host
 │   └── ALB (prod only)
 ├── Private Subnets - Dev
-│   └── 1 standalone EC2 (t3.small)
+│   └── 1 standalone EC2 (t3.medium)
 ├── Private Subnets - Staging
 │   └── 1 standalone EC2 (t3.medium)
 ├── Private Subnets - Prod
-│   └── ASG 2-10 EC2s (t3.large) behind ALB + WAF
-├── ElastiCache Valkey (shared, encrypted)
+│   └── ASG 2-10 EC2s (t3.xlarge) behind ALB + WAF
+├── ElastiCache Valkey (cache.m5.xlarge, encrypted)
 ├── NAT Gateway (shared)
 └── Site-to-Site VPN → DOST PAGASA on-premises
 ```
@@ -63,9 +63,9 @@ All resources are tagged with:
 
 | Tag | Value |
 |-----|-------|
-| Agency | DOST-PAGASA |
+| Organization | DOST-PAGASA |
 | Locality | Quezon City |
-| Project | DOST-PAGASA |
+| Province | Metro Manila |
 | Environment | dev / staging / prod |
 
 ## Security
