@@ -2,29 +2,18 @@
 
 > Philippine Atmospheric, Geophysical and Astronomical Services Administration
 
-## Project Details
-
-| | |
-|---|---|
-| **AWS Account** | 305366321337 |
-| **Region** | ap-southeast-1 (Singapore) |
-| **VPC CIDR** | 10.2.0.0/16 |
-| **On-Premises** | 10.100.100.0/24 (Sangfor NGAF M5800) |
-| **VPN Public IP** | 122.55.201.79 |
-| **Domains** | pagasa.dost.gov.ph, www.pagasa.dost.gov.ph, bagong.pagasa.dost.gov.ph |
-
 ## Architecture
 
 ```
-VPC: 10.2.0.0/16
-├── Public Subnets (shared): 10.2.1.0/24, 10.2.2.0/24
+VPC
+├── Public Subnets (shared)
 │   ├── Bastion Host
 │   └── ALB (prod only)
-├── Private Subnets - Dev: 10.2.10.0/24, 10.2.11.0/24
+├── Private Subnets - Dev
 │   └── 1 standalone EC2 (t3.small)
-├── Private Subnets - Staging: 10.2.20.0/24, 10.2.21.0/24
+├── Private Subnets - Staging
 │   └── 1 standalone EC2 (t3.medium)
-├── Private Subnets - Prod: 10.2.30.0/24, 10.2.31.0/24
+├── Private Subnets - Prod
 │   └── ASG 2-10 EC2s (t3.large) behind ALB + WAF
 ├── ElastiCache Valkey (shared, encrypted)
 ├── NAT Gateway (shared)
@@ -36,15 +25,11 @@ VPC: 10.2.0.0/16
 | Stack | Template | Type | Description |
 |-------|----------|------|-------------|
 | dost-pagasa-network | network.yaml | Shared | VPC, subnets, NAT, VPN, bastion |
-| dost-pagasa-security-dev | security.yaml | Per-env | Dev security groups + WAF |
-| dost-pagasa-security-staging | security.yaml | Per-env | Staging security groups + WAF |
-| dost-pagasa-security-prod | security.yaml | Per-env | Prod security groups + WAF |
-| dost-pagasa-certificates | certificates.yaml | Shared | ACM certificate (needs DNS validation) |
+| dost-pagasa-security-{env} | security.yaml | Per-env | Security groups + WAF |
+| dost-pagasa-certificates | certificates.yaml | Shared | ACM certificate |
 | dost-pagasa-cache | cache.yaml | Shared | ElastiCache Valkey cluster |
 | dost-pagasa-storage | storage.yaml | Shared | S3 + CloudFront CDN |
-| dost-pagasa-compute-dev | compute.yaml | Per-env | Dev EC2 instance |
-| dost-pagasa-compute-staging | compute.yaml | Per-env | Staging EC2 instance |
-| dost-pagasa-compute-prod | compute.yaml | Per-env | Prod ALB + ASG |
+| dost-pagasa-compute-{env} | compute.yaml | Per-env | EC2 / ALB + ASG |
 
 ## Deploy Order
 
@@ -68,16 +53,9 @@ Each stack deploys independently. Only changed resources get updated.
 ## SSH Access
 
 ```
-On-premises (122.55.201.79) → Bastion Host → EC2 instances
-                                (bastion-key)   (env-key)
+On-premises → Bastion Host → EC2 instances
+               (bastion-key)   (env-key)
 ```
-
-| Key Pair | Used By |
-|----------|---------|
-| dost-pagasa-bastion-key | Bastion host |
-| dost-pagasa-dev-key | Dev EC2 |
-| dost-pagasa-staging-key | Staging EC2 |
-| dost-pagasa-prod-key | Prod EC2 (ASG) |
 
 ## Tags
 
@@ -89,15 +67,6 @@ All resources are tagged with:
 | Locality | Quezon City |
 | Project | DOST-PAGASA |
 | Environment | dev / staging / prod |
-
-## HTTPS
-
-Currently HTTP-only. To enable HTTPS:
-1. Deploy `certificates` stack
-2. DOST PAGASA DNS team adds CNAME records to .gov.ph DNS
-3. Wait for ACM validation
-4. Add `AcmCertificateArn` to compute-prod parameters
-5. Redeploy compute-prod
 
 ## Security
 
