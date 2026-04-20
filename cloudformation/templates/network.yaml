@@ -569,7 +569,7 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 8
+            VolumeSize: 20
             VolumeType: gp3
             Encrypted: true
       MetadataOptions:
