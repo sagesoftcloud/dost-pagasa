@@ -75,6 +75,12 @@ jobs:
       - name: Deploy stack
         run: |
           STACK="${{ github.event.inputs.stack }}"
+          echo "🎯 Deploying: $STACK"
+          echo "📂 Template files:"
+          ls -la cloudformation/templates/compute.yaml
+          echo "📋 Checking exports:"
+          aws cloudformation list-exports --query "Exports[*].Name" --output text
+          STACK="${{ github.event.inputs.stack }}"
 
           case "$STACK" in
             network)
