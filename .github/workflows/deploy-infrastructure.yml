@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install cfn-lint
+      - run: pip install cfn-lint==1.31.1
       - run: cfn-lint cloudformation/templates/*.yaml
 
   deploy:
