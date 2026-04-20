@@ -59,6 +59,10 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -95,6 +99,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-app"
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -125,6 +133,10 @@ Resources:
         - !ImportValue
             Fn::Sub: "dost-pagasa-${Environment}-alb-sg-id"
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -154,6 +166,10 @@ Resources:
       Matcher:
         HttpCode: "200"
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -221,7 +237,11 @@ Resources:
             Tags:
               - Key: Name
                 Value: dost-pagasa-prod-app
-              - Key: Project
+              - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
+        - Key: Project
                 Value: DOST-PAGASA
               - Key: Environment
                 Value: prod
@@ -256,6 +276,10 @@ Resources:
         - Key: Name
           Value: dost-pagasa-prod-asg
           PropagateAtLaunch: false
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
           PropagateAtLaunch: true

@@ -47,6 +47,10 @@ Resources:
       PreferredMaintenanceWindow: "sun:18:00-sun:19:00"
       AutoMinorVersionUpgrade: true
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 

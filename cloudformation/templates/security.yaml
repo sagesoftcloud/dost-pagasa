@@ -36,6 +36,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-alb-sg"
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -68,6 +72,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-ec2-sg"
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -90,6 +98,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-cache-sg"
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -169,6 +181,10 @@ Resources:
             CloudWatchMetricsEnabled: true
             MetricName: RateLimit
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment

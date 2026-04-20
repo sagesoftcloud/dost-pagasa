@@ -27,6 +27,10 @@ Resources:
         - !Ref "AWS::NoValue"
       ValidationMethod: DNS
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 

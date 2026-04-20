@@ -22,6 +22,10 @@ Resources:
       DisplayName: !Sub "DOST PAGASA ${Environment} Alarms"
       KmsMasterKeyId: alias/aws/sns
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 

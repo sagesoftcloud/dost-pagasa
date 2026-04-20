@@ -39,6 +39,10 @@ Resources:
         Rules:
           - ObjectOwnership: BucketOwnerPreferred
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -70,6 +74,10 @@ Resources:
         DestinationBucketName: !Ref AccessLogsBucket
         LogFilePrefix: s3-access-logs/
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -136,6 +144,10 @@ Resources:
           IncludeCookies: false
           Prefix: cloudfront-logs/
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 

@@ -70,6 +70,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vpc
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -82,6 +86,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-igw
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -104,6 +112,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-public-1a
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -117,6 +129,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-public-1b
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -132,6 +148,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-dev-1a
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -146,6 +166,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-dev-1b
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -163,6 +187,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-staging-1a
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -177,6 +205,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-staging-1b
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -194,6 +226,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-prod-1a
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -208,6 +244,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-prod-1b
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
         - Key: Environment
@@ -224,6 +264,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-nat-eip
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -235,6 +279,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-nat
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -248,6 +296,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-public-rt
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -281,6 +333,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-rt
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -336,6 +392,10 @@ Resources:
       LogGroupName: /dost-pagasa/vpc-flow-logs
       RetentionInDays: 365
       Tags:
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -376,6 +436,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vpc-flow-log
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -391,6 +455,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-cgw
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -401,6 +469,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vgw
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -423,6 +495,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vpn
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -474,6 +550,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-bastion-sg
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -498,6 +578,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-bastion
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
@@ -509,6 +593,10 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-bastion-eip
+        - Key: Agency
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
         - Key: Project
           Value: DOST-PAGASA
 
