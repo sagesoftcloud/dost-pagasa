@@ -37,7 +37,7 @@ Resources:
       NumCacheClusters: !Ref NumCacheClusters
       CacheSubnetGroupName: !Ref CacheSubnetGroup
       SecurityGroupIds:
-        - !ImportValue dost-pagasa-cache-sg-id
+        - !ImportValue dost-pagasa-prod-cache-sg-id
       AutomaticFailoverEnabled: true
       MultiAZEnabled: true
       AtRestEncryptionEnabled: true
