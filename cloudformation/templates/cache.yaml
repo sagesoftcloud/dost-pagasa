@@ -1,17 +1,17 @@
 # =============================================================================
 # DOST PAGASA - Cache Stack
-# Imports: subnet IDs from network, SG from security
+# Creates: ElastiCache Valkey cluster (cluster mode disabled)
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: DOST PAGASA ElastiCache Valkey cluster.
+Description: DOST PAGASA ElastiCache Valkey node-based cluster.
 
 Parameters:
   NodeType:
     Type: String
-    Default: cache.r5.large
+    Default: cache.m5.xlarge
   NumCacheClusters:
     Type: Number
-    Default: 2
+    Default: 1
   EngineVersion:
     Type: String
     Default: "8.0"
@@ -38,8 +38,8 @@ Resources:
       CacheSubnetGroupName: !Ref CacheSubnetGroup
       SecurityGroupIds:
         - !ImportValue dost-pagasa-prod-cache-sg-id
-      AutomaticFailoverEnabled: true
-      MultiAZEnabled: true
+      AutomaticFailoverEnabled: false
+      MultiAZEnabled: false
       AtRestEncryptionEnabled: true
       TransitEncryptionEnabled: true
       SnapshotRetentionLimit: 7
@@ -47,12 +47,12 @@ Resources:
       PreferredMaintenanceWindow: "sun:18:00-sun:19:00"
       AutoMinorVersionUpgrade: true
       Tags:
-        - Key: Organization
+        - Key: Agency
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Province
-          Value: Metro Manila
+        - Key: Project
+          Value: DOST-PAGASA
 
 Outputs:
   ValkeyPrimaryEndpoint:
