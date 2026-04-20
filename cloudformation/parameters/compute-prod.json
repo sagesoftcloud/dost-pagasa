@@ -1,8 +1,8 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "prod" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.large" },
-  { "ParameterKey": "MinCapacity",       "ParameterValue": "2" },
-  { "ParameterKey": "MaxCapacity",       "ParameterValue": "10" },
-  { "ParameterKey": "DesiredCapacity",   "ParameterValue": "3" },
+  { "ParameterKey": "MinCapacity",       "ParameterValue": "1" },
+  { "ParameterKey": "MaxCapacity",       "ParameterValue": "1" },
+  { "ParameterKey": "DesiredCapacity",   "ParameterValue": "1" },
   { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-prod-key" }
 ]
