@@ -59,12 +59,12 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   Ec2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -99,12 +99,12 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-app"
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: !Ref Environment
       UserData:
@@ -133,12 +133,12 @@ Resources:
         - !ImportValue
             Fn::Sub: "dost-pagasa-${Environment}-alb-sg-id"
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: prod
 
@@ -166,12 +166,12 @@ Resources:
       Matcher:
         HttpCode: "200"
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -222,7 +222,7 @@ Resources:
         BlockDeviceMappings:
           - DeviceName: /dev/xvda
             Ebs:
-              VolumeSize: 30
+              VolumeSize: 100
               VolumeType: gp3
               Encrypted: true
               DeleteOnTermination: true
@@ -237,12 +237,12 @@ Resources:
             Tags:
               - Key: Name
                 Value: dost-pagasa-prod-app
-              - Key: Agency
+              - Key: Organization
                 Value: DOST-PAGASA
               - Key: Locality
                 Value: Quezon City
-              - Key: Project
-                Value: DOST-PAGASA
+              - Key: Organization
+                Value: Metro Manila
               - Key: Environment
                 Value: prod
         UserData:
@@ -276,14 +276,14 @@ Resources:
         - Key: Name
           Value: dost-pagasa-prod-asg
           PropagateAtLaunch: false
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
           PropagateAtLaunch: true
         - Key: Locality
           Value: Quezon City
           PropagateAtLaunch: true
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
           PropagateAtLaunch: true
         - Key: Environment
           Value: prod

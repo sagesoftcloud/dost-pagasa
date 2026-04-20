@@ -8,13 +8,13 @@ Description: DOST PAGASA ElastiCache Valkey cluster.
 Parameters:
   NodeType:
     Type: String
-    Default: cache.t3.medium
+    Default: cache.r5.large
   NumCacheClusters:
     Type: Number
     Default: 2
   EngineVersion:
     Type: String
-    Default: "7.2"
+    Default: "8.0"
 
 Resources:
   CacheSubnetGroup:
@@ -47,12 +47,12 @@ Resources:
       PreferredMaintenanceWindow: "sun:18:00-sun:19:00"
       AutoMinorVersionUpgrade: true
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
 Outputs:
   ValkeyPrimaryEndpoint:

@@ -13,6 +13,9 @@ Parameters:
     Type: Number
     Default: 2000
 
+Conditions:
+  IsProd: !Equals [!Ref Environment, "prod"]
+
 Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -36,12 +39,12 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-alb-sg"
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: !Ref Environment
 
@@ -72,12 +75,12 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-ec2-sg"
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: !Ref Environment
 
@@ -98,17 +101,18 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "dost-pagasa-${Environment}-cache-sg"
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: !Ref Environment
 
   WafWebAcl:
     Type: AWS::WAFv2::WebACL
+    Condition: IsProd
     Properties:
       Name: !Sub "dost-pagasa-${Environment}-waf"
       Scope: REGIONAL
@@ -181,12 +185,12 @@ Resources:
             CloudWatchMetricsEnabled: true
             MetricName: RateLimit
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: !Ref Environment
 
@@ -204,6 +208,7 @@ Outputs:
     Export:
       Name: !Sub "dost-pagasa-${Environment}-cache-sg-id"
   WafWebAclArn:
+    Condition: IsProd
     Value: !GetAtt WafWebAcl.Arn
     Export:
       Name: !Sub "dost-pagasa-${Environment}-waf-acl-arn"

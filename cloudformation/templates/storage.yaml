@@ -39,12 +39,12 @@ Resources:
         Rules:
           - ObjectOwnership: BucketOwnerPreferred
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   AssetsBucket:
     Type: AWS::S3::Bucket
@@ -74,12 +74,12 @@ Resources:
         DestinationBucketName: !Ref AccessLogsBucket
         LogFilePrefix: s3-access-logs/
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   AssetsBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -144,12 +144,12 @@ Resources:
           IncludeCookies: false
           Prefix: cloudfront-logs/
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
 Outputs:
   AssetsBucketName:

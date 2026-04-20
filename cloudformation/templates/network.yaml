@@ -70,11 +70,11 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vpc
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
+        - Key: Province
           Value: DOST-PAGASA
 
   # ---------------------------------------------------------------------------
@@ -86,11 +86,11 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-igw
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
+        - Key: Province
           Value: DOST-PAGASA
 
   InternetGatewayAttachment:
@@ -112,12 +112,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-public-1a
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -129,12 +129,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-public-1b
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   # ---------------------------------------------------------------------------
   # Private Subnets - Dev
@@ -148,12 +148,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-dev-1a
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: dev
 
@@ -166,12 +166,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-dev-1b
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: dev
 
@@ -187,12 +187,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-staging-1a
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: staging
 
@@ -205,12 +205,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-staging-1b
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: staging
 
@@ -226,12 +226,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-prod-1a
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: prod
 
@@ -244,12 +244,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-prod-1b
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
         - Key: Environment
           Value: prod
 
@@ -264,12 +264,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-nat-eip
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   NatGateway:
     Type: AWS::EC2::NatGateway
@@ -279,12 +279,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-nat
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   # ---------------------------------------------------------------------------
   # Route Tables - Public
@@ -296,12 +296,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-public-rt
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   PublicDefaultRoute:
     Type: AWS::EC2::Route
@@ -333,12 +333,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-private-rt
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   PrivateDefaultRoute:
     Type: AWS::EC2::Route
@@ -392,12 +392,12 @@ Resources:
       LogGroupName: /dost-pagasa/vpc-flow-logs
       RetentionInDays: 365
       Tags:
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   VpcFlowLogRole:
     Type: AWS::IAM::Role
@@ -436,12 +436,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vpc-flow-log
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   # ---------------------------------------------------------------------------
   # Site-to-Site VPN
@@ -455,12 +455,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-cgw
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   VpnGateway:
     Type: AWS::EC2::VPNGateway
@@ -469,12 +469,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vgw
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   VpnGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -495,12 +495,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-vpn
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   VpnConnectionRoute:
     Type: AWS::EC2::VPNConnectionRoute
@@ -550,12 +550,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-bastion-sg
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
   BastionInstance:
     Type: AWS::EC2::Instance
@@ -569,7 +569,7 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 20
+            VolumeSize: 8
             VolumeType: gp3
             Encrypted: true
       MetadataOptions:
@@ -578,12 +578,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-bastion
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province Name
+          Value: Metro Manila
 
   BastionEip:
     Type: AWS::EC2::EIP
@@ -593,12 +593,12 @@ Resources:
       Tags:
         - Key: Name
           Value: dost-pagasa-bastion-eip
-        - Key: Agency
+        - Key: Organization
           Value: DOST-PAGASA
         - Key: Locality
           Value: Quezon City
-        - Key: Project
-          Value: DOST-PAGASA
+        - Key: Province
+          Value: Metro Manila
 
 Outputs:
   VpcId:

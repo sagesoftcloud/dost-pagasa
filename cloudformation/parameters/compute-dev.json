@@ -1,5 +1,5 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "dev" },
-  { "ParameterKey": "InstanceType",      "ParameterValue": "t3.small" },
+  { "ParameterKey": "InstanceType",      "ParameterValue": "t3.medium" },
   { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-dev-key" }
 ]
