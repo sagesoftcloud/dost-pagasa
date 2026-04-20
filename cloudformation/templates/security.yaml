@@ -24,12 +24,12 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: "0.0.0.0/0"
-          Description: HTTP from internet
+          Description: !Sub "HTTP from internet (${Environment})"
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: "0.0.0.0/0"
-          Description: HTTPS from internet
+          Description: !Sub "HTTPS from internet (${Environment})"
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: "0.0.0.0/0"
@@ -51,17 +51,17 @@ Resources:
           FromPort: 80
           ToPort: 80
           SourceSecurityGroupId: !Ref AlbSecurityGroup
-          Description: HTTP from ALB
+          Description: !Sub "HTTP from ALB (${Environment})"
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           SourceSecurityGroupId: !Ref AlbSecurityGroup
-          Description: HTTPS from ALB
+          Description: !Sub "HTTPS from ALB (${Environment})"
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           SourceSecurityGroupId: !ImportValue dost-pagasa-bastion-sg-id
-          Description: SSH from bastion host only
+          Description: !Sub "SSH from bastion host only (${Environment})"
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: "0.0.0.0/0"
@@ -83,7 +83,7 @@ Resources:
           FromPort: 6379
           ToPort: 6379
           SourceSecurityGroupId: !Ref Ec2SecurityGroup
-          Description: Valkey from EC2 instances
+          Description: !Sub "Valkey from EC2 instances (${Environment})"
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: "0.0.0.0/0"
