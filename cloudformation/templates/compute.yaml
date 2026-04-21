@@ -241,7 +241,7 @@ Resources:
                 Value: DOST-PAGASA
               - Key: Locality
                 Value: Quezon City
-              - Key: Organization
+              - Key: Province
                 Value: Metro Manila
               - Key: Environment
                 Value: prod
@@ -250,8 +250,49 @@ Resources:
             #!/bin/bash
             set -euxo pipefail
             dnf update -y
-            dnf install -y amazon-cloudwatch-agent
+            dnf install -y amazon-cloudwatch-agent nginx
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
+
+            cat > /usr/share/nginx/html/index.html <<'EOF'
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>DOST PAGASA</title>
+              <style>
+                body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f4f8; }
+                .container { text-align: center; padding: 2rem; }
+                h1 { color: #1a365d; }
+                p { color: #4a5568; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>DOST PAGASA</h1>
+                <p>Philippine Atmospheric, Geophysical and Astronomical Services Administration</p>
+                <p>Production Environment</p>
+              </div>
+            </body>
+            </html>
+            EOF
+
+            cat > /usr/share/nginx/html/health <<'EOF'
+            OK
+            EOF
+
+            cat > /etc/nginx/conf.d/health.conf <<'EOF'
+            server {
+                listen 80;
+                location /health {
+                    default_type text/plain;
+                    alias /usr/share/nginx/html/health;
+                }
+            }
+            EOF
+
+            systemctl enable nginx
+            systemctl start nginx
             echo "DOST PAGASA prod initialized" > /var/log/init.log
 
   AutoScalingGroup:
