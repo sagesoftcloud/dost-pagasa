@@ -324,20 +324,13 @@ Resources:
             EOF
 
             # Health check endpoint for ALB
-            cat > /var/www/html/health.html <<'EOF'
-            OK
-            EOF
-
-            cat > /etc/httpd/conf.d/health.conf <<'EOF'
-            <Location "/health">
-              SetHandler None
-              Require all granted
-            </Location>
-            Alias /health /var/www/html/health.html
-            <Files "health.html">
-              ForceType text/plain
-            </Files>
-            EOF
+            mkdir -p /var/www/html/health
+            cat > /var/www/html/health/index.php <<'HEALTHEOF'
+            <?php
+            http_response_code(200);
+            header('Content-Type: text/plain');
+            echo 'OK';
+            HEALTHEOF
 
             # Enable and start services
             systemctl enable httpd php-fpm
