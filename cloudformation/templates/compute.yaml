@@ -114,6 +114,31 @@ Resources:
           dnf update -y
           dnf install -y amazon-cloudwatch-agent
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
+
+          # Install EPEL and Remi repo (required for PHP 7.4)
+          dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+          dnf install -y https://rpms.remirepo.net/enterprise/remi-release-9.rpm
+
+          # Install Apache (httpd 2.4.x)
+          dnf install -y httpd
+
+          # Enable PHP 7.4 from Remi
+          dnf -y module reset php
+          dnf -y module enable php:remi-7.4
+
+          # Install PHP 7.4 with FPM and extensions
+          dnf -y install php php-fpm php-cli php-common php-opcache \
+            php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
+            php-pdo php-mysqlnd php-pecl-redis
+
+          # Configure PHP-FPM to work with Apache
+          sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
+          sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
+
+          # Enable and start services
+          systemctl enable httpd php-fpm
+          systemctl start httpd php-fpm
+
           echo "DOST PAGASA ${Environment} initialized" > /var/log/init.log
 
   # ---------------------------------------------------------------------------
@@ -250,10 +275,31 @@ Resources:
             #!/bin/bash
             set -euxo pipefail
             dnf update -y
-            dnf install -y amazon-cloudwatch-agent nginx
+            dnf install -y amazon-cloudwatch-agent
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
 
-            cat > /usr/share/nginx/html/index.html <<'EOF'
+            # Install EPEL and Remi repo (required for PHP 7.4)
+            dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+            dnf install -y https://rpms.remirepo.net/enterprise/remi-release-9.rpm
+
+            # Install Apache (httpd 2.4.x)
+            dnf install -y httpd
+
+            # Enable PHP 7.4 from Remi
+            dnf -y module reset php
+            dnf -y module enable php:remi-7.4
+
+            # Install PHP 7.4 with FPM and extensions
+            dnf -y install php php-fpm php-cli php-common php-opcache \
+              php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
+              php-pdo php-mysqlnd php-pecl-redis
+
+            # Configure PHP-FPM to work with Apache
+            sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
+            sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
+
+            # Default landing page
+            cat > /var/www/html/index.html <<'EOF'
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -277,22 +323,15 @@ Resources:
             </html>
             EOF
 
-            cat > /usr/share/nginx/html/health <<'EOF'
+            # Health check endpoint for ALB
+            cat > /var/www/html/health <<'EOF'
             OK
             EOF
 
-            cat > /etc/nginx/conf.d/health.conf <<'EOF'
-            server {
-                listen 80;
-                location /health {
-                    default_type text/plain;
-                    alias /usr/share/nginx/html/health;
-                }
-            }
-            EOF
+            # Enable and start services
+            systemctl enable httpd php-fpm
+            systemctl start httpd php-fpm
 
-            systemctl enable nginx
-            systemctl start nginx
             echo "DOST PAGASA prod initialized" > /var/log/init.log
 
   AutoScalingGroup:
