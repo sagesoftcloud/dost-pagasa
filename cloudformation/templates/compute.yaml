@@ -324,8 +324,19 @@ Resources:
             EOF
 
             # Health check endpoint for ALB
-            cat > /var/www/html/health <<'EOF'
+            cat > /var/www/html/health.html <<'EOF'
             OK
+            EOF
+
+            cat > /etc/httpd/conf.d/health.conf <<'EOF'
+            <Location "/health">
+              SetHandler None
+              Require all granted
+            </Location>
+            Alias /health /var/www/html/health.html
+            <Files "health.html">
+              ForceType text/plain
+            </Files>
             EOF
 
             # Enable and start services
