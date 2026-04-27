@@ -184,7 +184,7 @@ Resources:
       Port: 80
       Protocol: HTTP
       TargetType: instance
-      HealthCheckPath: /health
+      HealthCheckPath: /health.php
       HealthCheckIntervalSeconds: 30
       HealthyThresholdCount: 3
       UnhealthyThresholdCount: 3
@@ -324,8 +324,7 @@ Resources:
             EOF
 
             # Health check endpoint for ALB
-            mkdir -p /var/www/html/health
-            cat > /var/www/html/health/index.php <<'HEALTHEOF'
+            cat > /var/www/html/health.php <<'HEALTHEOF'
             <?php
             http_response_code(200);
             header('Content-Type: text/plain');
