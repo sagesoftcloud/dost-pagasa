@@ -294,7 +294,7 @@ Resources:
               - Key: Environment
                 Value: prod
         UserData:
-          Fn::Base64: |
+          Fn::Base64: !Sub |
             #!/bin/bash
             set -euxo pipefail
             yum update -y
@@ -310,7 +310,7 @@ Resources:
                   "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
                   "disk": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "resources": ["*"] }
                 },
-                "append_dimensions": { "InstanceId": "${aws:InstanceId}" }
+                "append_dimensions": { "InstanceId": "$${aws:InstanceId}" }
               },
               "logs": {
                 "logs_collected": {

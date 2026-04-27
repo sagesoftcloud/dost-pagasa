@@ -1,6 +1,5 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "staging" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.medium" },
-  { "ParameterKey": "AmiId",            "ParameterValue": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2" },
   { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-staging-key" }
 ]
