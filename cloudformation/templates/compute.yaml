@@ -124,7 +124,7 @@ Resources:
                 "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
                 "disk": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "resources": ["*"] }
               },
-              "append_dimensions": { "InstanceId": "$${aws:InstanceId}" }
+              "append_dimensions": { "InstanceId": "INSTANCE_ID_PLACEHOLDER" }
             },
             "logs": {
               "logs_collected": {
@@ -139,6 +139,7 @@ Resources:
             }
           }
           CWCFG
+          sed -i 's/INSTANCE_ID_PLACEHOLDER/$${aws:InstanceId}/' /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
           # Enable PHP 7.4 from amazon-linux-extras
@@ -310,7 +311,7 @@ Resources:
                   "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
                   "disk": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "resources": ["*"] }
                 },
-                "append_dimensions": { "InstanceId": "$${aws:InstanceId}" }
+                "append_dimensions": { "InstanceId": "INSTANCE_ID_PLACEHOLDER" }
               },
               "logs": {
                 "logs_collected": {
@@ -325,6 +326,7 @@ Resources:
               }
             }
             CWCFG
+            sed -i 's/INSTANCE_ID_PLACEHOLDER/$${aws:InstanceId}/' /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
             # Enable PHP 7.4 from amazon-linux-extras
