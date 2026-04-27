@@ -139,7 +139,8 @@ Resources:
             }
           }
           CWCFG
-          sed -i 's/INSTANCE_ID_PLACEHOLDER/$${aws:InstanceId}/' /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+          INSTANCE_DIM='$''{aws:InstanceId}'
+          sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
           # Enable PHP 7.4 from amazon-linux-extras
@@ -326,7 +327,8 @@ Resources:
               }
             }
             CWCFG
-            sed -i 's/INSTANCE_ID_PLACEHOLDER/$${aws:InstanceId}/' /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+            INSTANCE_DIM='$''{aws:InstanceId}'
+            sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
             # Enable PHP 7.4 from amazon-linux-extras
