@@ -143,21 +143,12 @@ Resources:
           sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
-          # Enable PHP 7.4 from amazon-linux-extras
-          amazon-linux-extras enable php7.4
+          # Install PHP 7.4 from amazon-linux-extras
+          amazon-linux-extras install php7.4 -y
 
-          # Remove old PHP 5.4 to avoid multilib conflicts
-          yum remove -y php-common php-cli php-fpm php-pdo php-mysqlnd 2>/dev/null || true
-
-          # Install Apache and PHP 7.4 with FPM and extensions
-          yum clean metadata
-          yum install -y httpd php php-fpm php-cli php-common php-opcache \
-            php-mbstring php-xml php-gd php-pecl-zip php-curl php-bcmath \
-            php-pdo php-mysqlnd
-
-          # Install php-pecl-redis via EPEL
-          amazon-linux-extras install epel -y
-          yum install -y php-pecl-redis
+          # Install Apache and remaining PHP extensions
+          yum install -y httpd php-opcache php-mbstring php-xml php-gd \
+            php-pecl-zip php-curl php-bcmath php-pecl-redis
 
           # Configure PHP-FPM to work with Apache
           sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
@@ -334,21 +325,12 @@ Resources:
             sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
-            # Enable PHP 7.4 from amazon-linux-extras
-            amazon-linux-extras enable php7.4
+            # Install PHP 7.4 from amazon-linux-extras
+            amazon-linux-extras install php7.4 -y
 
-            # Remove old PHP 5.4 to avoid multilib conflicts
-            yum remove -y php-common php-cli php-fpm php-pdo php-mysqlnd 2>/dev/null || true
-
-            # Install Apache and PHP 7.4 with FPM and extensions
-            yum clean metadata
-            yum install -y httpd php php-fpm php-cli php-common php-opcache \
-              php-mbstring php-xml php-gd php-pecl-zip php-curl php-bcmath \
-              php-pdo php-mysqlnd
-
-            # Install php-pecl-redis via EPEL
-            amazon-linux-extras install epel -y
-            yum install -y php-pecl-redis
+            # Install Apache and remaining PHP extensions
+            yum install -y httpd php-opcache php-mbstring php-xml php-gd \
+              php-pecl-zip php-curl php-bcmath php-pecl-redis
 
             # Configure PHP-FPM to work with Apache
             sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
