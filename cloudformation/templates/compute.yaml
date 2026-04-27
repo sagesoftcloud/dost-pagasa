@@ -18,7 +18,7 @@ Parameters:
     Default: t3.medium
   AmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
   KeyPairName:
     Type: String
   MinCapacity:
@@ -111,25 +111,22 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
-          dnf update -y
-          dnf install -y amazon-cloudwatch-agent
+          yum update -y
+          yum install -y amazon-cloudwatch-agent
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
 
-          # Install EPEL and Remi repo (required for PHP 7.4)
-          dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-          dnf install -y https://rpms.remirepo.net/enterprise/remi-release-9.rpm
+          # Enable PHP 7.4 from amazon-linux-extras
+          amazon-linux-extras enable php7.4
 
-          # Install Apache (httpd 2.4.x)
-          dnf install -y httpd
+          # Install Apache and PHP 7.4 with FPM and extensions
+          yum clean metadata
+          yum install -y httpd php php-fpm php-cli php-common php-opcache \
+            php-mbstring php-xml php-gd php-pecl-zip php-curl php-bcmath \
+            php-pdo php-mysqlnd
 
-          # Enable PHP 7.4 from Remi
-          dnf -y module reset php
-          dnf -y module enable php:remi-7.4
-
-          # Install PHP 7.4 with FPM and extensions
-          dnf -y install php php-fpm php-cli php-common php-opcache \
-            php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
-            php-pdo php-mysqlnd php-pecl-redis
+          # Install php-pecl-redis via EPEL
+          amazon-linux-extras install epel -y
+          yum install -y php-pecl-redis
 
           # Configure PHP-FPM to work with Apache
           sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
@@ -274,25 +271,22 @@ Resources:
           Fn::Base64: |
             #!/bin/bash
             set -euxo pipefail
-            dnf update -y
-            dnf install -y amazon-cloudwatch-agent
+            yum update -y
+            yum install -y amazon-cloudwatch-agent
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
 
-            # Install EPEL and Remi repo (required for PHP 7.4)
-            dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-            dnf install -y https://rpms.remirepo.net/enterprise/remi-release-9.rpm
+            # Enable PHP 7.4 from amazon-linux-extras
+            amazon-linux-extras enable php7.4
 
-            # Install Apache (httpd 2.4.x)
-            dnf install -y httpd
+            # Install Apache and PHP 7.4 with FPM and extensions
+            yum clean metadata
+            yum install -y httpd php php-fpm php-cli php-common php-opcache \
+              php-mbstring php-xml php-gd php-pecl-zip php-curl php-bcmath \
+              php-pdo php-mysqlnd
 
-            # Enable PHP 7.4 from Remi
-            dnf -y module reset php
-            dnf -y module enable php:remi-7.4
-
-            # Install PHP 7.4 with FPM and extensions
-            dnf -y install php php-fpm php-cli php-common php-opcache \
-              php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
-              php-pdo php-mysqlnd php-pecl-redis
+            # Install php-pecl-redis via EPEL
+            amazon-linux-extras install epel -y
+            yum install -y php-pecl-redis
 
             # Configure PHP-FPM to work with Apache
             sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
