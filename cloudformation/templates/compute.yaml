@@ -113,7 +113,33 @@ Resources:
           set -euxo pipefail
           yum update -y
           yum install -y amazon-cloudwatch-agent
-          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
+
+          # CloudWatch agent config
+          cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWCFG'
+          {
+            "metrics": {
+              "namespace": "DOST-PAGASA",
+              "metrics_collected": {
+                "cpu": { "measurement": ["cpu_usage_idle","cpu_usage_user","cpu_usage_system"], "metrics_collection_interval": 60 },
+                "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
+                "disk": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "resources": ["*"] }
+              },
+              "append_dimensions": { "InstanceId": "$${aws:InstanceId}" }
+            },
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    { "file_path": "/var/log/messages", "log_group_name": "/dost-pagasa/${Environment}/syslog", "log_stream_name": "{instance_id}" },
+                    { "file_path": "/var/log/httpd/access_log", "log_group_name": "/dost-pagasa/${Environment}/httpd-access", "log_stream_name": "{instance_id}" },
+                    { "file_path": "/var/log/httpd/error_log", "log_group_name": "/dost-pagasa/${Environment}/httpd-error", "log_stream_name": "{instance_id}" }
+                  ]
+                }
+              }
+            }
+          }
+          CWCFG
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
           # Enable PHP 7.4 from amazon-linux-extras
           amazon-linux-extras enable php7.4
@@ -273,7 +299,33 @@ Resources:
             set -euxo pipefail
             yum update -y
             yum install -y amazon-cloudwatch-agent
-            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
+
+            # CloudWatch agent config
+            cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWCFG'
+            {
+              "metrics": {
+                "namespace": "DOST-PAGASA",
+                "metrics_collected": {
+                  "cpu": { "measurement": ["cpu_usage_idle","cpu_usage_user","cpu_usage_system"], "metrics_collection_interval": 60 },
+                  "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
+                  "disk": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "resources": ["*"] }
+                },
+                "append_dimensions": { "InstanceId": "${aws:InstanceId}" }
+              },
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      { "file_path": "/var/log/messages", "log_group_name": "/dost-pagasa/prod/syslog", "log_stream_name": "{instance_id}" },
+                      { "file_path": "/var/log/httpd/access_log", "log_group_name": "/dost-pagasa/prod/httpd-access", "log_stream_name": "{instance_id}" },
+                      { "file_path": "/var/log/httpd/error_log", "log_group_name": "/dost-pagasa/prod/httpd-error", "log_stream_name": "{instance_id}" }
+                    ]
+                  }
+                }
+              }
+            }
+            CWCFG
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
             # Enable PHP 7.4 from amazon-linux-extras
             amazon-linux-extras enable php7.4
