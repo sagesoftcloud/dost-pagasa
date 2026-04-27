@@ -1,6 +1,7 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "prod" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.xlarge" },
+  { "ParameterKey": "AmiId",            "ParameterValue": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2" },
   { "ParameterKey": "MinCapacity",       "ParameterValue": "2" },
   { "ParameterKey": "MaxCapacity",       "ParameterValue": "6" },
   { "ParameterKey": "DesiredCapacity",   "ParameterValue": "2" },
