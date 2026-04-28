@@ -1,6 +1,7 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "prod" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.xlarge" },
+  { "ParameterKey": "AmiId",            "ParameterValue": "ami-05c5666d839c7e05c" },
   { "ParameterKey": "MinCapacity",       "ParameterValue": "2" },
   { "ParameterKey": "MaxCapacity",       "ParameterValue": "6" },
   { "ParameterKey": "DesiredCapacity",   "ParameterValue": "2" },

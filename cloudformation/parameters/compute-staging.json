@@ -1,5 +1,6 @@
 [
   { "ParameterKey": "Environment",       "ParameterValue": "staging" },
   { "ParameterKey": "InstanceType",      "ParameterValue": "t3.medium" },
+  { "ParameterKey": "AmiId",            "ParameterValue": "ami-05c5666d839c7e05c" },
   { "ParameterKey": "KeyPairName",       "ParameterValue": "dost-pagasa-staging-key" }
 ]
