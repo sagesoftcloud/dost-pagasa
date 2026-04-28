@@ -1,9 +1,10 @@
 # =============================================================================
 # DOST PAGASA - Compute Stack (deploy per environment)
 # Dev/Staging: standalone EC2 | Prod: ASG with ALB
+# OS: AlmaLinux 10
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: DOST PAGASA Compute - EC2 instances per environment.
+Description: DOST PAGASA Compute - EC2 instances per environment (AlmaLinux 10).
 
 Parameters:
   Environment:
@@ -17,8 +18,9 @@ Parameters:
     Type: String
     Default: t3.medium
   AmiId:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+    Type: String
+    Default: ami-05c5666d839c7e05c
+    Description: AlmaLinux 10 x86_64 AMI for ap-southeast-1
   KeyPairName:
     Type: String
   MinCapacity:
@@ -111,8 +113,12 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
-          yum update -y
-          yum install -y amazon-cloudwatch-agent
+          dnf update -y
+
+          # Install CloudWatch agent (download from AWS — not in AlmaLinux repos)
+          curl -O https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/amd64/latest/amazon-cloudwatch-agent.rpm
+          dnf install -y ./amazon-cloudwatch-agent.rpm
+          rm -f amazon-cloudwatch-agent.rpm
 
           # CloudWatch agent config
           cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWCFG'
@@ -143,12 +149,16 @@ Resources:
           sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
-          # Install PHP 7.4 from amazon-linux-extras
-          amazon-linux-extras install php7.4 -y
+          # Install EPEL and Remi repos for PHP 7.4
+          dnf install -y epel-release
+          dnf install -y https://rpms.remirepo.net/enterprise/remi-release-10.rpm
+          dnf -y module reset php
+          dnf -y module enable php:remi-7.4
 
-          # Install Apache and remaining PHP extensions
-          yum install -y httpd php-opcache php-mbstring php-xml php-gd \
-            php-pecl-zip php-curl php-bcmath php-pecl-redis
+          # Install Apache, PHP 7.4 and all extensions
+          dnf install -y httpd php php-fpm php-cli php-common php-opcache \
+            php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
+            php-pdo php-mysqlnd php-pecl-redis
 
           # Configure PHP-FPM to work with Apache
           sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
@@ -158,7 +168,7 @@ Resources:
           systemctl enable httpd php-fpm
           systemctl start httpd php-fpm
 
-          echo "DOST PAGASA ${Environment} initialized" > /var/log/init.log
+          echo "DOST PAGASA ${Environment} initialized (AlmaLinux 10)" > /var/log/init.log
 
   # ---------------------------------------------------------------------------
   # ALB + ASG (prod only)
@@ -293,8 +303,12 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash
             set -euxo pipefail
-            yum update -y
-            yum install -y amazon-cloudwatch-agent
+            dnf update -y
+
+            # Install CloudWatch agent (download from AWS — not in AlmaLinux repos)
+            curl -O https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/amd64/latest/amazon-cloudwatch-agent.rpm
+            dnf install -y ./amazon-cloudwatch-agent.rpm
+            rm -f amazon-cloudwatch-agent.rpm
 
             # CloudWatch agent config
             cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWCFG'
@@ -325,12 +339,16 @@ Resources:
             sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
-            # Install PHP 7.4 from amazon-linux-extras
-            amazon-linux-extras install php7.4 -y
+            # Install EPEL and Remi repos for PHP 7.4
+            dnf install -y epel-release
+            dnf install -y https://rpms.remirepo.net/enterprise/remi-release-10.rpm
+            dnf -y module reset php
+            dnf -y module enable php:remi-7.4
 
-            # Install Apache and remaining PHP extensions
-            yum install -y httpd php-opcache php-mbstring php-xml php-gd \
-              php-pecl-zip php-curl php-bcmath php-pecl-redis
+            # Install Apache, PHP 7.4 and all extensions
+            dnf install -y httpd php php-fpm php-cli php-common php-opcache \
+              php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
+              php-pdo php-mysqlnd php-pecl-redis
 
             # Configure PHP-FPM to work with Apache
             sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
@@ -368,7 +386,7 @@ Resources:
             systemctl enable httpd php-fpm
             systemctl start httpd php-fpm
 
-            echo "DOST PAGASA prod initialized" > /var/log/init.log
+            echo "DOST PAGASA prod initialized (AlmaLinux 10)" > /var/log/init.log
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
