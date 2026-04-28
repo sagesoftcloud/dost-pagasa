@@ -303,6 +303,14 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash
             set -euxo pipefail
+
+            # Install Apache FIRST and create health check so ALB passes early
+            dnf install -y httpd
+            echo "OK" > /var/www/html/health.html
+            systemctl enable httpd
+            systemctl start httpd
+
+            # Now do the rest of the setup
             dnf update -y
 
             # Install CloudWatch agent (download from AWS — not in AlmaLinux repos)
@@ -379,12 +387,12 @@ Resources:
             </html>
             EOF
 
-            # Health check endpoint for ALB
-            echo "OK" > /var/www/html/health.html
+            # Health check endpoint already created above
 
-            # Enable and start services
-            systemctl enable httpd php-fpm
-            systemctl start httpd php-fpm
+            # Restart httpd to pick up PHP-FPM config, enable and start php-fpm
+            systemctl enable php-fpm
+            systemctl restart httpd
+            systemctl start php-fpm
 
             echo "DOST PAGASA prod initialized (AlmaLinux 10)" > /var/log/init.log
 
@@ -405,7 +413,7 @@ Resources:
       TargetGroupARNs:
         - !Ref TargetGroup
       HealthCheckType: ELB
-      HealthCheckGracePeriod: 300
+      HealthCheckGracePeriod: 600
       Tags:
         - Key: Name
           Value: dost-pagasa-prod-asg
