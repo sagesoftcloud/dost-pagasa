@@ -1,9 +1,11 @@
 # =============================================================================
 # DOST PAGASA - Storage Stack
 # Imports: certificate ARN from certificates stack
+# Includes: CDN assets, access logs, per-env file storage, CodeBuild cache,
+#           and CodePipeline artifacts buckets
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
-Description: DOST PAGASA S3 + CloudFront CDN.
+Description: DOST PAGASA S3 + CloudFront CDN + App File Storage + Pipeline Buckets.
 
 Parameters:
   CdnDomainName:
@@ -151,6 +153,169 @@ Resources:
         - Key: Province
           Value: Metro Manila
 
+  # ---------------------------------------------------------------------------
+  # Per-Environment App File Storage Buckets
+  # ---------------------------------------------------------------------------
+  DevFilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "dost-pagasa-dev-files-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionOldVersions
+            Status: Enabled
+            NoncurrentVersionTransitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+      Tags:
+        - Key: Organization
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
+        - Key: Province
+          Value: Metro Manila
+        - Key: Environment
+          Value: dev
+
+  StagingFilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "dost-pagasa-staging-files-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionOldVersions
+            Status: Enabled
+            NoncurrentVersionTransitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+      Tags:
+        - Key: Organization
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
+        - Key: Province
+          Value: Metro Manila
+        - Key: Environment
+          Value: staging
+
+  ProdFilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "dost-pagasa-prod-files-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionOldVersions
+            Status: Enabled
+            NoncurrentVersionTransitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+      Tags:
+        - Key: Organization
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
+        - Key: Province
+          Value: Metro Manila
+        - Key: Environment
+          Value: prod
+
+  # ---------------------------------------------------------------------------
+  # CodeBuild Cache Bucket (shared, prefixed per environment)
+  # ---------------------------------------------------------------------------
+  CodeBuildCacheBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "dost-pagasa-codebuild-cache-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireCache
+            Status: Enabled
+            ExpirationInDays: 30
+      Tags:
+        - Key: Organization
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
+        - Key: Province
+          Value: Metro Manila
+
+  # ---------------------------------------------------------------------------
+  # CodePipeline Artifacts Bucket (shared across all pipelines)
+  # ---------------------------------------------------------------------------
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "dost-pagasa-pipeline-artifacts-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 30
+      Tags:
+        - Key: Organization
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
+        - Key: Province
+          Value: Metro Manila
+
 Outputs:
   AssetsBucketName:
     Value: !Ref AssetsBucket
@@ -164,3 +329,27 @@ Outputs:
     Value: !GetAtt CloudFrontDistribution.DomainName
     Export:
       Name: dost-pagasa-cloudfront-domain
+  DevFilesBucketName:
+    Value: !Ref DevFilesBucket
+    Export:
+      Name: dost-pagasa-dev-files-bucket
+  StagingFilesBucketName:
+    Value: !Ref StagingFilesBucket
+    Export:
+      Name: dost-pagasa-staging-files-bucket
+  ProdFilesBucketName:
+    Value: !Ref ProdFilesBucket
+    Export:
+      Name: dost-pagasa-prod-files-bucket
+  CodeBuildCacheBucketName:
+    Value: !Ref CodeBuildCacheBucket
+    Export:
+      Name: dost-pagasa-codebuild-cache-bucket
+  PipelineArtifactsBucketName:
+    Value: !Ref PipelineArtifactsBucket
+    Export:
+      Name: dost-pagasa-pipeline-artifacts-bucket
+  PipelineArtifactsBucketArn:
+    Value: !GetAtt PipelineArtifactsBucket.Arn
+    Export:
+      Name: dost-pagasa-pipeline-artifacts-bucket-arn

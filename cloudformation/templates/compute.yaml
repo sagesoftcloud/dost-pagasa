@@ -2,6 +2,7 @@
 # DOST PAGASA - Compute Stack (deploy per environment)
 # Dev/Staging: standalone EC2 | Prod: ASG with ALB
 # OS: AlmaLinux 10
+# Includes: CodeDeploy agent, Composer, Mountpoint-S3, firewalld
 # =============================================================================
 AWSTemplateFormatVersion: "2010-09-09"
 Description: DOST PAGASA Compute - EC2 instances per environment (AlmaLinux 10).
@@ -60,6 +61,34 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: !Sub "dost-pagasa-${Environment}-s3-files-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub "arn:aws:s3:::dost-pagasa-${Environment}-files-${AWS::AccountId}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::dost-pagasa-${Environment}-files-${AWS::AccountId}"
+        - PolicyName: !Sub "dost-pagasa-${Environment}-secrets-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:dost-pagasa/${Environment}/env-*"
       Tags:
         - Key: Organization
           Value: DOST-PAGASA
@@ -113,9 +142,18 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
+
+          # --- Environment identifier (used by after_install.sh) ---
+          echo "${Environment}" > /etc/dost-pagasa-environment
+
+          # --- Firewalld (AlmaLinux 10 blocks HTTP/HTTPS by default) ---
+          firewall-cmd --permanent --add-service=http
+          firewall-cmd --permanent --add-service=https
+          firewall-cmd --reload
+
           dnf update -y
 
-          # Install CloudWatch agent (download from AWS — not in AlmaLinux repos)
+          # Install CloudWatch agent (download from AWS - not in AlmaLinux repos)
           curl -O https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/amd64/latest/amazon-cloudwatch-agent.rpm
           dnf install -y ./amazon-cloudwatch-agent.rpm
           rm -f amazon-cloudwatch-agent.rpm
@@ -145,7 +183,7 @@ Resources:
             }
           }
           CWCFG
-          INSTANCE_DIM='$''{aws:InstanceId}'
+          INSTANCE_DIM='$'{aws:InstanceId}
           sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
@@ -163,6 +201,33 @@ Resources:
           # Configure PHP-FPM to work with Apache
           sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
           sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
+
+          # --- Composer ---
+          php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+          php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+          rm composer-setup.php
+
+          # --- Mountpoint S3 (shared file storage) ---
+          dnf install -y fuse
+          curl -O https://s3.amazonaws.com/mountpoint-s3-release/latest/x86_64/mount-s3.rpm
+          dnf install -y ./mount-s3.rpm
+          rm -f mount-s3.rpm
+          mkdir -p /mnt/pagasa-files
+          mount-s3 dost-pagasa-${Environment}-files-${AWS::AccountId} /mnt/pagasa-files \
+            --allow-overwrite \
+            --allow-delete \
+            --uid 48 --gid 48 \
+            --file-mode 0644 \
+            --dir-mode 0755
+          echo "dost-pagasa-${Environment}-files-${AWS::AccountId} /mnt/pagasa-files fuse.mount-s3 _netdev,allow_other,uid=48,gid=48,file_mode=0644,dir_mode=0755,allow_overwrite,allow_delete 0 0" >> /etc/fstab
+
+          # --- CodeDeploy Agent ---
+          dnf install -y ruby wget
+          wget https://aws-codedeploy-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/latest/install
+          chmod +x ./install
+          ./install auto
+          systemctl enable codedeploy-agent
+          systemctl start codedeploy-agent
 
           # Enable and start services
           systemctl enable httpd php-fpm
@@ -282,7 +347,7 @@ Resources:
               DeleteOnTermination: true
         MetadataOptions:
           HttpTokens: required
-          HttpPutResponseHopLimit: 1
+          HttpPutResponseHopLimit: 2
           HttpEndpoint: enabled
         Monitoring:
           Enabled: true
@@ -304,16 +369,24 @@ Resources:
             #!/bin/bash
             set -euxo pipefail
 
+            # --- Environment identifier (used by after_install.sh) ---
+            echo "prod" > /etc/dost-pagasa-environment
+
             # Install Apache FIRST and create health check so ALB passes early
             dnf install -y httpd
             echo "OK" > /var/www/html/health.html
             systemctl enable httpd
             systemctl start httpd
 
+            # --- Firewalld (AlmaLinux 10 blocks HTTP/HTTPS by default) ---
+            firewall-cmd --permanent --add-service=http
+            firewall-cmd --permanent --add-service=https
+            firewall-cmd --reload
+
             # Now do the rest of the setup
             dnf update -y
 
-            # Install CloudWatch agent (download from AWS — not in AlmaLinux repos)
+            # Install CloudWatch agent (download from AWS - not in AlmaLinux repos)
             curl -O https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/amd64/latest/amazon-cloudwatch-agent.rpm
             dnf install -y ./amazon-cloudwatch-agent.rpm
             rm -f amazon-cloudwatch-agent.rpm
@@ -343,7 +416,7 @@ Resources:
               }
             }
             CWCFG
-            INSTANCE_DIM='$''{aws:InstanceId}'
+            INSTANCE_DIM='$'{aws:InstanceId}
             sed -i "s|INSTANCE_ID_PLACEHOLDER|$INSTANCE_DIM|" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
@@ -362,7 +435,34 @@ Resources:
             sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
             sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
 
-            # Default landing page
+            # --- Composer ---
+            php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+            php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+            rm composer-setup.php
+
+            # --- Mountpoint S3 (shared file storage) ---
+            dnf install -y fuse
+            curl -O https://s3.amazonaws.com/mountpoint-s3-release/latest/x86_64/mount-s3.rpm
+            dnf install -y ./mount-s3.rpm
+            rm -f mount-s3.rpm
+            mkdir -p /mnt/pagasa-files
+            mount-s3 dost-pagasa-prod-files-${AWS::AccountId} /mnt/pagasa-files \
+              --allow-overwrite \
+              --allow-delete \
+              --uid 48 --gid 48 \
+              --file-mode 0644 \
+              --dir-mode 0755
+            echo "dost-pagasa-prod-files-${AWS::AccountId} /mnt/pagasa-files fuse.mount-s3 _netdev,allow_other,uid=48,gid=48,file_mode=0644,dir_mode=0755,allow_overwrite,allow_delete 0 0" >> /etc/fstab
+
+            # --- CodeDeploy Agent ---
+            dnf install -y ruby wget
+            wget https://aws-codedeploy-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/latest/install
+            chmod +x ./install
+            ./install auto
+            systemctl enable codedeploy-agent
+            systemctl start codedeploy-agent
+
+            # Default landing page (overwritten by CodeDeploy on first app deployment)
             cat > /var/www/html/index.html <<'EOF'
             <!DOCTYPE html>
             <html lang="en">
@@ -386,8 +486,6 @@ Resources:
             </body>
             </html>
             EOF
-
-            # Health check endpoint already created above
 
             # Restart httpd to pick up PHP-FPM config, enable and start php-fpm
             systemctl enable php-fpm
@@ -461,3 +559,8 @@ Outputs:
     Value: !Ref AutoScalingGroup
     Export:
       Name: dost-pagasa-prod-asg-name
+  TargetGroupArn:
+    Condition: IsProd
+    Value: !Ref TargetGroup
+    Export:
+      Name: dost-pagasa-prod-tg-arn

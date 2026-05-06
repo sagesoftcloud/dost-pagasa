@@ -23,6 +23,8 @@ on:
           - compute-staging
           - compute-prod
           - monitoring-prod
+          - pipeline
+          - pipeline-dev
 
 permissions:
   id-token: write
@@ -66,7 +68,7 @@ jobs:
         run: |
           STACK="${{ github.event.inputs.stack }}"
           case "$STACK" in
-            compute-dev|compute-staging|compute-prod|security-dev|security-staging|security-prod|monitoring-prod)
+            compute-dev|compute-staging|compute-prod|security-dev|security-staging|security-prod|monitoring-prod|pipeline|pipeline-dev)
               STACK_NAME="dost-pagasa-${STACK}"
               ;;
             *)
@@ -165,6 +167,30 @@ jobs:
                 --template-file cloudformation/templates/monitoring.yaml \
                 --parameter-overrides Environment=prod \
                 --tags Project=DOST-PAGASA Environment=prod \
+                --no-fail-on-empty-changeset
+              ;;
+            pipeline)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-pipeline \
+                --template-file cloudformation/templates/pipeline.yaml \
+                --parameter-overrides \
+                  GitHubConnectionArn=${{ secrets.GITHUB_CONNECTION_ARN }} \
+                  GitHubRepo=devpagasa/pagasa_website \
+                  GitHubBranch=staging \
+                --capabilities CAPABILITY_NAMED_IAM \
+                --tags Project=DOST-PAGASA \
+                --no-fail-on-empty-changeset
+              ;;
+            pipeline-dev)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-pipeline-dev \
+                --template-file cloudformation/templates/pipeline-dev.yaml \
+                --parameter-overrides \
+                  GitHubConnectionArn=${{ secrets.GITHUB_CONNECTION_ARN }} \
+                  GitHubRepo=devpagasa/pagasa_website \
+                  GitHubBranch=dev \
+                --capabilities CAPABILITY_NAMED_IAM \
+                --tags Project=DOST-PAGASA Environment=dev \
                 --no-fail-on-empty-changeset
               ;;
           esac
