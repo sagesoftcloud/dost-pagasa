@@ -208,6 +208,7 @@ Resources:
           sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
 
           # --- Composer ---
+          export HOME=/root
           php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
           php composer-setup.php --install-dir=/usr/local/bin --filename=composer
           rm composer-setup.php
@@ -444,6 +445,7 @@ Resources:
             sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
 
             # --- Composer ---
+            export HOME=/root
             php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
             php composer-setup.php --install-dir=/usr/local/bin --filename=composer
             rm composer-setup.php
