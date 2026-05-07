@@ -158,6 +158,56 @@ Resources:
                   - ssm:GetParameter
                   - ssm:GetParameters
                 Resource: "arn:aws:ssm:ap-southeast-1::parameter/aws/service/ami-amazon-linux-latest/*"
+              # CodeDeploy — for pipeline stack
+              - Effect: Allow
+                Action:
+                  - codedeploy:CreateApplication
+                  - codedeploy:DeleteApplication
+                  - codedeploy:GetApplication
+                  - codedeploy:CreateDeploymentGroup
+                  - codedeploy:DeleteDeploymentGroup
+                  - codedeploy:GetDeploymentGroup
+                  - codedeploy:UpdateDeploymentGroup
+                  - codedeploy:TagResource
+                  - codedeploy:UntagResource
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: ap-southeast-1
+              # CodeBuild — for pipeline stack
+              - Effect: Allow
+                Action:
+                  - codebuild:CreateProject
+                  - codebuild:DeleteProject
+                  - codebuild:UpdateProject
+                  - codebuild:BatchGetProjects
+                  - codebuild:TagResource
+                  - codebuild:UntagResource
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: ap-southeast-1
+              # CodePipeline — for pipeline stack
+              - Effect: Allow
+                Action:
+                  - codepipeline:CreatePipeline
+                  - codepipeline:DeletePipeline
+                  - codepipeline:GetPipeline
+                  - codepipeline:GetPipelineState
+                  - codepipeline:UpdatePipeline
+                  - codepipeline:TagResource
+                  - codepipeline:UntagResource
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: ap-southeast-1
+              # CodeStar Connections — for pipeline source
+              - Effect: Allow
+                Action:
+                  - codeconnections:PassConnection
+                  - codeconnections:UseConnection
+                Resource:
+                  - !Sub "arn:aws:codeconnections:ap-southeast-1:${AWS::AccountId}:connection/*"
       Tags:
         - Key: Project
           Value: DOST-PAGASA
