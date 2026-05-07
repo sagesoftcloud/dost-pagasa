@@ -147,6 +147,9 @@ Resources:
           echo "${Environment}" > /etc/dost-pagasa-environment
 
           # --- Firewalld (AlmaLinux 10 blocks HTTP/HTTPS by default) ---
+          dnf install -y firewalld
+          systemctl enable firewalld
+          systemctl start firewalld
           firewall-cmd --permanent --add-service=http
           firewall-cmd --permanent --add-service=https
           firewall-cmd --reload
@@ -379,6 +382,9 @@ Resources:
             systemctl start httpd
 
             # --- Firewalld (AlmaLinux 10 blocks HTTP/HTTPS by default) ---
+            dnf install -y firewalld
+            systemctl enable firewalld
+            systemctl start firewalld
             firewall-cmd --permanent --add-service=http
             firewall-cmd --permanent --add-service=https
             firewall-cmd --reload
