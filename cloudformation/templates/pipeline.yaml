@@ -286,7 +286,6 @@ Resources:
                 ConnectionArn: !Ref GitHubConnectionArn
                 FullRepositoryId: !Ref GitHubRepo
                 BranchName: !Ref GitHubBranch
-                DetectChanges: "false"
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
