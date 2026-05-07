@@ -227,12 +227,12 @@ Resources:
             --dir-mode 0755
           echo "dost-pagasa-${Environment}-files-${AWS::AccountId} /mnt/pagasa-files fuse.mount-s3 _netdev,allow_other,uid=48,gid=48,file_mode=0644,dir_mode=0755,allow_overwrite,allow_delete 0 0" >> /etc/fstab
 
-          # --- CodeDeploy Agent ---
+          # --- CodeDeploy Agent (use RPM directly - installer script has Ruby version bug) ---
           dnf install -y ruby wget
-          wget https://aws-codedeploy-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/latest/install
-          chmod +x ./install
-          ./install auto
-          systemctl enable codedeploy-agent
+          wget https://aws-codedeploy-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/latest/codedeploy-agent.noarch.rpm
+          dnf install -y ./codedeploy-agent.noarch.rpm
+          rm -f codedeploy-agent.noarch.rpm
+          systemctl enable codedeploy-agent || true
           systemctl start codedeploy-agent
 
           # Enable and start services
@@ -464,12 +464,12 @@ Resources:
               --dir-mode 0755
             echo "dost-pagasa-prod-files-${AWS::AccountId} /mnt/pagasa-files fuse.mount-s3 _netdev,allow_other,uid=48,gid=48,file_mode=0644,dir_mode=0755,allow_overwrite,allow_delete 0 0" >> /etc/fstab
 
-            # --- CodeDeploy Agent ---
+            # --- CodeDeploy Agent (use RPM directly - installer script has Ruby version bug) ---
             dnf install -y ruby wget
-            wget https://aws-codedeploy-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/latest/install
-            chmod +x ./install
-            ./install auto
-            systemctl enable codedeploy-agent
+            wget https://aws-codedeploy-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/latest/codedeploy-agent.noarch.rpm
+            dnf install -y ./codedeploy-agent.noarch.rpm
+            rm -f codedeploy-agent.noarch.rpm
+            systemctl enable codedeploy-agent || true
             systemctl start codedeploy-agent
 
             # Default landing page (overwritten by CodeDeploy on first app deployment)
