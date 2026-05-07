@@ -109,6 +109,8 @@ Resources:
   StandaloneInstance:
     Type: AWS::EC2::Instance
     Condition: IsNotProd
+    Metadata:
+      DeployTimestamp: "2026-05-07-force-replace"
     Properties:
       InstanceType: !Ref InstanceType
       ImageId: !Ref AmiId
