@@ -174,7 +174,7 @@ jobs:
                 --stack-name dost-pagasa-pipeline \
                 --template-file cloudformation/templates/pipeline.yaml \
                 --parameter-overrides \
-                  GitHubConnectionArn=${{ secrets.GITHUB_CONNECTION_ARN }} \
+                  GitHubConnectionArn=${{ secrets.AWS_CONNECTION_ARN }} \
                   GitHubRepo=devpagasa/pagasa_website \
                   GitHubBranch=staging \
                 --capabilities CAPABILITY_NAMED_IAM \
@@ -186,7 +186,7 @@ jobs:
                 --stack-name dost-pagasa-pipeline-dev \
                 --template-file cloudformation/templates/pipeline-dev.yaml \
                 --parameter-overrides \
-                  GitHubConnectionArn=${{ secrets.GITHUB_CONNECTION_ARN }} \
+                  GitHubConnectionArn=${{ secrets.AWS_CONNECTION_ARN }} \
                   GitHubRepo=devpagasa/pagasa_website \
                   GitHubBranch=dev \
                 --capabilities CAPABILITY_NAMED_IAM \
