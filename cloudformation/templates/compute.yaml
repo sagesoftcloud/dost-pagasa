@@ -207,6 +207,13 @@ Resources:
           sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
           sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
 
+          # --- AWS CLI (needed for Secrets Manager in after_install.sh) ---
+          dnf install -y unzip
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          ./aws/install
+          rm -rf aws awscliv2.zip
+
           # --- Composer ---
           export HOME=/root
           php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
@@ -443,6 +450,13 @@ Resources:
             # Configure PHP-FPM to work with Apache
             sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
             sed -i 's/^group = .*/group = apache/' /etc/php-fpm.d/www.conf
+
+            # --- AWS CLI (needed for Secrets Manager in after_install.sh) ---
+            dnf install -y unzip
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -q awscliv2.zip
+            ./aws/install
+            rm -rf aws awscliv2.zip
 
             # --- Composer ---
             export HOME=/root
