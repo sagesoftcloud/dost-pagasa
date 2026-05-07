@@ -42,6 +42,7 @@ Resources:
                 Action:
                   - cloudformation:ValidateTemplate
                   - cloudformation:GetTemplateSummary
+                  - cloudformation:ListExports
                 Resource: "*"
               # S3 — upload nested templates
               - Effect: Allow
