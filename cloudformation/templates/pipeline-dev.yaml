@@ -62,7 +62,7 @@ Resources:
                   - codeconnections:UseConnection
                   - codeconnections:GetConnection
                 Resource:
-                  - !Ref GitHubConnectionArn
+                  - !Sub "arn:aws:codeconnections:${AWS::Region}:${AWS::AccountId}:connection/*"
       Tags:
         - Key: Organization
           Value: DOST-PAGASA
@@ -95,7 +95,7 @@ Resources:
                 Action:
                   - codeconnections:UseConnection
                 Resource:
-                  - !Ref GitHubConnectionArn
+                  - !Sub "arn:aws:codeconnections:${AWS::Region}:${AWS::AccountId}:connection/*"
               - Effect: Allow
                 Action:
                   - codebuild:BatchGetBuilds

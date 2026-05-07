@@ -165,10 +165,13 @@ Resources:
                   - codedeploy:CreateApplication
                   - codedeploy:DeleteApplication
                   - codedeploy:GetApplication
+                  - codedeploy:GetApplicationRevision
                   - codedeploy:CreateDeploymentGroup
                   - codedeploy:DeleteDeploymentGroup
                   - codedeploy:GetDeploymentGroup
                   - codedeploy:UpdateDeploymentGroup
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:ListDeploymentConfigs
                   - codedeploy:TagResource
                   - codedeploy:UntagResource
                 Resource: "*"
@@ -196,6 +199,8 @@ Resources:
                   - codepipeline:GetPipeline
                   - codepipeline:GetPipelineState
                   - codepipeline:UpdatePipeline
+                  - codepipeline:ListPipelines
+                  - codepipeline:ListTagsForResource
                   - codepipeline:TagResource
                   - codepipeline:UntagResource
                 Resource: "*"
@@ -207,8 +212,13 @@ Resources:
                 Action:
                   - codeconnections:PassConnection
                   - codeconnections:UseConnection
+                  - codeconnections:GetConnection
+                  - codestar-connections:PassConnection
+                  - codestar-connections:UseConnection
+                  - codestar-connections:GetConnection
                 Resource:
                   - !Sub "arn:aws:codeconnections:ap-southeast-1:${AWS::AccountId}:connection/*"
+                  - !Sub "arn:aws:codestar-connections:ap-southeast-1:${AWS::AccountId}:connection/*"
       Tags:
         - Key: Project
           Value: DOST-PAGASA
