@@ -25,6 +25,7 @@ on:
           - monitoring-prod
           - pipeline
           - pipeline-dev
+          - guardduty
 
 permissions:
   id-token: write
@@ -191,6 +192,13 @@ jobs:
                   GitHubBranch=dev \
                 --capabilities CAPABILITY_NAMED_IAM \
                 --tags Project=DOST-PAGASA Environment=dev \
+                --no-fail-on-empty-changeset
+              ;;
+            guardduty)
+              aws cloudformation deploy \
+                --stack-name dost-pagasa-guardduty \
+                --template-file cloudformation/templates/guardduty.yaml \
+                --tags Project=DOST-PAGASA \
                 --no-fail-on-empty-changeset
               ;;
           esac

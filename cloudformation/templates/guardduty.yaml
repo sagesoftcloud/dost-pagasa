@@ -1,0 +1,39 @@
+# =============================================================================
+# DOST PAGASA - GuardDuty Stack
+# Enables Amazon GuardDuty for threat detection and compliance
+# =============================================================================
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  DOST PAGASA GuardDuty - Enables threat detection for compliance.
+  Detects unauthorized access, compromised instances, and malicious activity.
+
+Resources:
+  GuardDutyDetector:
+    Type: AWS::GuardDuty::Detector
+    Properties:
+      Enable: true
+      FindingPublishingFrequency: FIFTEEN_MINUTES
+      DataSources:
+        S3Logs:
+          Enable: true
+        Kubernetes:
+          AuditLogs:
+            Enable: false
+        MalwareProtection:
+          ScanEc2InstanceWithFindings:
+            EbsVolumes: true
+      Tags:
+        - Key: Organization
+          Value: DOST-PAGASA
+        - Key: Locality
+          Value: Quezon City
+        - Key: Province
+          Value: Metro Manila
+        - Key: Project
+          Value: DOST-PAGASA
+
+Outputs:
+  GuardDutyDetectorId:
+    Value: !Ref GuardDutyDetector
+    Export:
+      Name: dost-pagasa-guardduty-detector-id
