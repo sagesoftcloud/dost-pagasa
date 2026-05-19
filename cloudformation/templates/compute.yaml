@@ -395,7 +395,18 @@ Resources:
 
             # Install Apache FIRST and create health check so ALB passes early
             dnf install -y httpd
-            echo "OK" > /var/www/html/health.html
+            mkdir -p /var/www/health
+            echo "OK" > /var/www/health/health.html
+            chown apache:apache /var/www/health/health.html
+
+            # Health check alias config (serves from outside app directory, survives deploys)
+            cat > /etc/httpd/conf.d/health.conf << 'HEALTHEOF'
+            Alias /health.html /var/www/health/health.html
+            <Directory /var/www/health>
+              Require all granted
+            </Directory>
+            HEALTHEOF
+
             systemctl enable httpd
             systemctl start httpd
 
@@ -549,7 +560,7 @@ Resources:
       TargetGroupARNs:
         - !Ref TargetGroup
       HealthCheckType: ELB
-      HealthCheckGracePeriod: 600
+      HealthCheckGracePeriod: 900
       Tags:
         - Key: Name
           Value: dost-pagasa-prod-asg
