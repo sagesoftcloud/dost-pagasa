@@ -177,7 +177,7 @@ jobs:
                 --parameter-overrides \
                   GitHubConnectionArn=${{ secrets.AWS_CONNECTION_ARN }} \
                   GitHubRepo=devpagasa/pagasa_website \
-                  GitHubBranch=staging \
+                  GitHubBranch=production \
                 --capabilities CAPABILITY_NAMED_IAM \
                 --tags Project=DOST-PAGASA \
                 --no-fail-on-empty-changeset

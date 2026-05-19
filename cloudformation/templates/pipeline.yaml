@@ -16,7 +16,7 @@ Parameters:
     Description: GitHub repository (owner/repo)
   GitHubBranch:
     Type: String
-    Default: "staging"
+    Default: "production"
     Description: Branch to trigger pipeline on
   ApprovalNotificationEmail:
     Type: String
