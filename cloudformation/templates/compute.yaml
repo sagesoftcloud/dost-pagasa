@@ -88,7 +88,9 @@ Resources:
                 Action:
                   - secretsmanager:GetSecretValue
                 Resource:
-                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:dost-pagasa/${Environment}/env-*"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:dost-pagasa/${Environment}/*"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SSLCertificateFile-*"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:SSLCertificateKeyFile-*"
       Tags:
         - Key: Organization
           Value: DOST-PAGASA
@@ -201,7 +203,13 @@ Resources:
           # Install Apache, PHP 7.4 and all extensions
           dnf install -y httpd php php-fpm php-cli php-common php-opcache \
             php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
-            php-pdo php-mysqlnd php-pecl-redis
+            php-pdo php-mysqlnd php-pecl-redis mod_ssl policycoreutils-python-utils
+
+          # Remove default ssl.conf (SSL configured by CodeDeploy after_install.sh)
+          rm -f /etc/httpd/conf.d/ssl.conf
+
+          # Allow Apache to make outbound network connections (SELinux - for Valkey/DB)
+          setsebool -P httpd_can_network_connect 1
 
           # Configure PHP-FPM to work with Apache
           sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
@@ -445,7 +453,13 @@ Resources:
             # Install Apache, PHP 7.4 and all extensions
             dnf install -y httpd php php-fpm php-cli php-common php-opcache \
               php-mbstring php-xml php-gd php-zip php-curl php-bcmath \
-              php-pdo php-mysqlnd php-pecl-redis
+              php-pdo php-mysqlnd php-pecl-redis mod_ssl policycoreutils-python-utils
+
+            # Remove default ssl.conf (SSL configured by CodeDeploy after_install.sh)
+            rm -f /etc/httpd/conf.d/ssl.conf
+
+            # Allow Apache to make outbound network connections (SELinux - for Valkey/DB)
+            setsebool -P httpd_can_network_connect 1
 
             # Configure PHP-FPM to work with Apache
             sed -i 's/^user = .*/user = apache/' /etc/php-fpm.d/www.conf
