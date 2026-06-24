@@ -360,7 +360,7 @@ Resources:
           - !ImportValue
             Fn::Sub: "dost-pagasa-${Environment}-ec2-sg-id"
         BlockDeviceMappings:
-          - DeviceName: /dev/xvda
+          - DeviceName: /dev/sda1
             Ebs:
               VolumeSize: 100
               VolumeType: gp3
