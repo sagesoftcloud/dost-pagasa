@@ -176,11 +176,8 @@ Resources:
           systemctl enable firewalld
           systemctl start firewalld
 
-          # Wait for firewalld to be ready
-          for i in {1..10}; do
-            firewall-cmd --state && break
-            sleep 2
-          done
+          # Wait for firewalld to be ready (must not fail under set -e)
+          while ! firewall-cmd --state &>/dev/null; do sleep 1; done
 
           firewall-cmd --permanent --add-service=http
           firewall-cmd --permanent --add-service=https
@@ -473,6 +470,10 @@ Resources:
             dnf install -y firewalld
             systemctl enable firewalld
             systemctl start firewalld
+
+            # Wait for firewalld to be ready (must not fail under set -e)
+            while ! firewall-cmd --state &>/dev/null; do sleep 1; done
+
             firewall-cmd --permanent --add-service=http
             firewall-cmd --permanent --add-service=https
             firewall-cmd --reload
