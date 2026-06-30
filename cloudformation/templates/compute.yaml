@@ -147,6 +147,10 @@ Resources:
           #!/bin/bash
           set -euxo pipefail
 
+          # --- Grow partition to fill disk (AMI ships with 5 GB partition on larger volume) ---
+          growpart /dev/nvme0n1 4
+          xfs_growfs /
+
           # --- Environment identifier (used by after_install.sh) ---
           echo "${Environment}" > /etc/dost-pagasa-environment
 
@@ -389,6 +393,10 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash
             set -euxo pipefail
+
+            # --- Grow partition to fill disk (AMI ships with 5 GB partition on larger volume) ---
+            growpart /dev/nvme0n1 4
+            xfs_growfs /
 
             # --- Environment identifier (used by after_install.sh) ---
             echo "prod" > /etc/dost-pagasa-environment
