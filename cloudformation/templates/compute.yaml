@@ -148,6 +148,7 @@ Resources:
           set -euxo pipefail
 
           # --- Grow partition to fill disk (AMI ships with 5 GB partition on larger volume) ---
+          dnf install -y cloud-utils-growpart
           growpart /dev/nvme0n1 4
           xfs_growfs /
 
@@ -395,6 +396,7 @@ Resources:
             set -euxo pipefail
 
             # --- Grow partition to fill disk (AMI ships with 5 GB partition on larger volume) ---
+            dnf install -y cloud-utils-growpart
             growpart /dev/nvme0n1 4
             xfs_growfs /
 
