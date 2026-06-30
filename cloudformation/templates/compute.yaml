@@ -149,8 +149,8 @@ Resources:
 
           # --- Grow partition to fill disk (AMI ships with 5 GB partition on larger volume) ---
           dnf install -y cloud-utils-growpart
-          growpart /dev/nvme0n1 4
-          xfs_growfs /
+          growpart /dev/nvme0n1 4 || true
+          xfs_growfs / || true
 
           # --- Environment identifier (used by after_install.sh) ---
           echo "${Environment}" > /etc/dost-pagasa-environment
@@ -162,26 +162,13 @@ Resources:
           chown apache:apache /var/www/health/health.html
 
           # Health check alias config (serves from outside app directory, survives deploys)
-          cat > /etc/httpd/conf.d/health.conf << 'HEALTHEOF'
-          Alias /health.html /var/www/health/health.html
-          <Directory /var/www/health>
-              Require all granted
-          </Directory>
-          HEALTHEOF
+          printf '%s\n' 'Alias /health.html /var/www/health/health.html' '<Directory /var/www/health>' '    Require all granted' '</Directory>' > /etc/httpd/conf.d/health.conf
           systemctl enable httpd
           systemctl start httpd
 
-          # --- Firewalld (AlmaLinux 10 blocks HTTP/HTTPS by default) ---
-          dnf install -y firewalld
-          systemctl enable firewalld
-          systemctl start firewalld
-
-          # Wait for firewalld to be ready (must not fail under set -e)
-          while ! firewall-cmd --state &>/dev/null; do sleep 1; done
-
-          firewall-cmd --permanent --add-service=http
-          firewall-cmd --permanent --add-service=https
-          firewall-cmd --reload
+          # --- Disable firewalld (security groups handle network access control) ---
+          systemctl disable firewalld || true
+          systemctl stop firewalld || true
 
           dnf update -y
 
@@ -222,8 +209,8 @@ Resources:
           # Install EPEL and Remi repos for PHP 7.4
           dnf install -y epel-release
           dnf install -y https://rpms.remirepo.net/enterprise/remi-release-10.rpm
-          dnf -y module reset php
-          dnf -y module enable php:remi-7.4
+          dnf -y module reset php || true
+          dnf -y module enable php:remi-7.4 || true
 
           # Install Apache, PHP 7.4 and all extensions
           dnf install -y httpd php php-fpm php-cli php-common php-opcache \
@@ -264,7 +251,7 @@ Resources:
             --allow-delete \
             --uid 48 --gid 48 \
             --file-mode 0644 \
-            --dir-mode 0755
+            --dir-mode 0755 || true
           echo "dost-pagasa-${Environment}-files-${AWS::AccountId} /mnt/pagasa-files fuse.mount-s3 _netdev,allow_other,uid=48,gid=48,file_mode=0644,dir_mode=0755,allow_overwrite,allow_delete 0 0" >> /etc/fstab
 
           # --- CodeDeploy Agent (use RPM directly - installer script has Ruby version bug) ---
@@ -276,29 +263,7 @@ Resources:
           systemctl start codedeploy-agent
 
           # Default landing page (overwritten by CodeDeploy on first app deployment)
-          cat > /var/www/html/index.html <<'EOF'
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>DOST PAGASA</title>
-            <style>
-              body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f4f8; }
-              .container { text-align: center; padding: 2rem; }
-              h1 { color: #1a365d; }
-              p { color: #4a5568; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>DOST PAGASA</h1>
-              <p>Philippine Atmospheric, Geophysical and Astronomical Services Administration</p>
-              <p>Production Environment</p>
-            </div>
-          </body>
-          </html>
-          EOF
+          printf '%s\n' '<!DOCTYPE html>' '<html lang="en">' '<head>' '  <meta charset="UTF-8">' '  <meta name="viewport" content="width=device-width, initial-scale=1.0">' '  <title>DOST PAGASA</title>' '  <style>' '    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f4f8; }' '    .container { text-align: center; padding: 2rem; }' '    h1 { color: #1a365d; }' '    p { color: #4a5568; }' '  </style>' '</head>' '<body>' '  <div class="container">' '    <h1>DOST PAGASA</h1>' '    <p>Philippine Atmospheric, Geophysical and Astronomical Services Administration</p>' '    <p>Production Environment</p>' '  </div>' '</body>' '</html>' > /var/www/html/index.html
 
           # Enable and start services
           systemctl enable httpd php-fpm
@@ -443,8 +408,8 @@ Resources:
 
             # --- Grow partition to fill disk (AMI ships with 5 GB partition on larger volume) ---
             dnf install -y cloud-utils-growpart
-            growpart /dev/nvme0n1 4
-            xfs_growfs /
+            growpart /dev/nvme0n1 4 || true
+            xfs_growfs / || true
 
             # --- Environment identifier (used by after_install.sh) ---
             echo "prod" > /etc/dost-pagasa-environment
@@ -456,27 +421,14 @@ Resources:
             chown apache:apache /var/www/health/health.html
 
             # Health check alias config (serves from outside app directory, survives deploys)
-            cat > /etc/httpd/conf.d/health.conf << 'HEALTHEOF'
-            Alias /health.html /var/www/health/health.html
-            <Directory /var/www/health>
-              Require all granted
-            </Directory>
-            HEALTHEOF
+            printf '%s\n' 'Alias /health.html /var/www/health/health.html' '<Directory /var/www/health>' '    Require all granted' '</Directory>' > /etc/httpd/conf.d/health.conf
 
             systemctl enable httpd
             systemctl start httpd
 
-            # --- Firewalld (AlmaLinux 10 blocks HTTP/HTTPS by default) ---
-            dnf install -y firewalld
-            systemctl enable firewalld
-            systemctl start firewalld
-
-            # Wait for firewalld to be ready (must not fail under set -e)
-            while ! firewall-cmd --state &>/dev/null; do sleep 1; done
-
-            firewall-cmd --permanent --add-service=http
-            firewall-cmd --permanent --add-service=https
-            firewall-cmd --reload
+            # --- Disable firewalld (security groups handle network access control) ---
+            systemctl disable firewalld || true
+            systemctl stop firewalld || true
 
             # Now do the rest of the setup
             dnf update -y
@@ -518,8 +470,8 @@ Resources:
             # Install EPEL and Remi repos for PHP 7.4
             dnf install -y epel-release
             dnf install -y https://rpms.remirepo.net/enterprise/remi-release-10.rpm
-            dnf -y module reset php
-            dnf -y module enable php:remi-7.4
+            dnf -y module reset php || true
+            dnf -y module enable php:remi-7.4 || true
 
             # Install Apache, PHP 7.4 and all extensions
             dnf install -y httpd php php-fpm php-cli php-common php-opcache \
@@ -560,7 +512,7 @@ Resources:
               --allow-delete \
               --uid 48 --gid 48 \
               --file-mode 0644 \
-              --dir-mode 0755
+              --dir-mode 0755 || true
             echo "dost-pagasa-prod-files-${AWS::AccountId} /mnt/pagasa-files fuse.mount-s3 _netdev,allow_other,uid=48,gid=48,file_mode=0644,dir_mode=0755,allow_overwrite,allow_delete 0 0" >> /etc/fstab
 
             # --- CodeDeploy Agent (installed LAST so all dependencies are ready) ---
@@ -573,34 +525,12 @@ Resources:
             systemctl start codedeploy-agent
 
             # Default landing page (overwritten by CodeDeploy on first app deployment)
-            cat > /var/www/html/index.html <<'EOF'
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>DOST PAGASA</title>
-              <style>
-                body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f4f8; }
-                .container { text-align: center; padding: 2rem; }
-                h1 { color: #1a365d; }
-                p { color: #4a5568; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <h1>DOST PAGASA</h1>
-                <p>Philippine Atmospheric, Geophysical and Astronomical Services Administration</p>
-                <p>Production Environment</p>
-              </div>
-            </body>
-            </html>
-            EOF
+            printf '%s\n' '<!DOCTYPE html>' '<html lang="en">' '<head>' '  <meta charset="UTF-8">' '  <meta name="viewport" content="width=device-width, initial-scale=1.0">' '  <title>DOST PAGASA</title>' '  <style>' '    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f4f8; }' '    .container { text-align: center; padding: 2rem; }' '    h1 { color: #1a365d; }' '    p { color: #4a5568; }' '  </style>' '</head>' '<body>' '  <div class="container">' '    <h1>DOST PAGASA</h1>' '    <p>Philippine Atmospheric, Geophysical and Astronomical Services Administration</p>' '    <p>Production Environment</p>' '  </div>' '</body>' '</html>' > /var/www/html/index.html
 
             # Restart httpd to pick up PHP-FPM config, enable and start php-fpm
             systemctl enable php-fpm
             systemctl restart httpd
-            systemctl start php-fpm
+            systemctl start php-fpm || true
 
             echo "DOST PAGASA prod initialized (AlmaLinux 10)" > /var/log/init.log
 
